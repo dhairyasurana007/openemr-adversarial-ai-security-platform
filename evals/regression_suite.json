@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "description": "Cases that must pass on every build. Populated by runner when vulnerabilities are confirmed.",
+  "case_ids": [
+    "T01-001",
+    "T01-002",
+    "T02-001",
+    "T02-002",
+    "T02-004",
+    "T03-001",
+    "T03-002",
+    "T03-004",
+    "T04-001",
+    "T04-003",
+    "T07-001",
+    "T07-002",
+    "T09-001",
+    "T09-002",
+    "T09-004",
+    "T10-001",
+    "T10-003",
+    "T15-001",
+    "T15-003",
+    "T17-001",
+    "T17-002"
+  ]
+}
