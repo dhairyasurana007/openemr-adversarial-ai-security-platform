@@ -10,7 +10,7 @@ All agent state, attack records, verdicts, and vulnerability reports are persist
 
 Agent coordination runs on **LangGraph**, chosen for its stateful graph execution, conditional routing, and native support for human-in-the-loop interrupt points. Agents communicate via a **Redis Streams** message queue with typed, schema-validated payloads. No agent calls another directly. Human approval gates sit at two explicit points: before a CRITICAL-severity report is filed, and before any remediation action touches the live target.
 
-Model selection is heterogeneous by design. The Red Team Agent runs on a low-refusal open-source model (Mistral-7B via Ollama) so it is not blocked by the same safety filters it is trying to probe. The Judge Agent runs on a separate frontier model family (GPT-4o) to prevent systematic agreement bias. The Orchestrator and Documentation Agent run on Claude Sonnet, where structured reasoning and JSON output quality matter more than cost-per-token. All frontier model calls (GPT-4o, Claude Sonnet) are routed through the OpenRouter API. All choices are revisited at scale breakpoints documented in the cost analysis.
+Model selection is heterogeneous by design. The Red Team Agent runs on a low-refusal open-source model (Mistral-7B via OpenRouter) so it is not blocked by the same safety filters it is trying to probe. The Judge Agent runs on a separate frontier model family (GPT-4o) to prevent systematic agreement bias. The Orchestrator and Documentation Agent run on Claude Sonnet, where structured reasoning and JSON output quality matter more than cost-per-token. All model calls are routed through the OpenRouter API. All choices are revisited at scale breakpoints documented in the cost analysis.
 
 The regression harness converts every confirmed exploit into a deterministic, versioned pytest test that re-runs against every new deployment. A test passes only when the Judge returns FAILURE with high confidence on the exact attack sequence — not because the model's behavior happened to change. Deployment is containerized via Docker Compose for local development and Render for production. All production services are defined in a single `render.yaml`.
 
@@ -155,7 +155,7 @@ agentforge-adversarial-ai-security-platform/
 
 **Outputs:** Attack execution records (prompt sequence, target response, token cost), mutation proposals for partial successes, anomaly escalation flags.
 
-**Model:** Mistral-7B-Instruct via Ollama (local) — low refusal rate on offensive security content, no rate limits, low cost. Fallback to Claude Sonnet via OpenRouter API for complex multi-turn sequences where reasoning depth matters.
+**Model:** Mistral-7B-Instruct via OpenRouter API — low refusal rate on offensive security content, low cost. Fallback to Claude Sonnet via OpenRouter API for complex multi-turn sequences where reasoning depth matters.
 
 **Trust level:** Low. Operates in an isolated execution context. All traffic to the target is proxied, logged, and rate-limited. Cannot read vulnerability reports or modify the regression suite. Target scope is enforced technically — see Target Scope Enforcement below.
 
@@ -385,7 +385,7 @@ The registered target URL is the only host the Red Team Agent is permitted to co
            ┌────────────────────┐  ┌──────────────────────┐
            │  Red Team Agent    │  │  Regression Harness   │
            │  (Mistral-7B /     │  │  (pytest + httpx)     │
-           │   Ollama)          │  │                       │
+           │   OpenRouter)      │  │                       │
            │                   │  │  Deterministic replay  │
            │  • Generates       │  │  of confirmed exploits│
            │    attacks         │  └──────────┬───────────┘
@@ -679,7 +679,7 @@ All services run via Docker Compose. The adversarial platform and the Clinical C
 
 ```bash
 cp .env.example .env          # fill in API keys, DB credentials
-docker compose up --build     # starts: postgres, redis, ollama, agentforge-adversarial-ai-security-platform-api, target, frontend (Vite dev server)
+docker compose up --build     # starts: postgres, redis, agentforge-adversarial-ai-security-platform-api, target, frontend (Vite dev server)
 ```
 
 **Services started:**
@@ -691,7 +691,6 @@ docker compose up --build     # starts: postgres, redis, ollama, agentforge-adve
 
 | `postgres` | 5432 | State store |
 | `redis` | 6379 | Message queue (Redis Streams) |
-| `ollama` | 11434 | Local Mistral-7B inference |
 | `proxy` | 8888 | mitmproxy traffic logger |
 | `frontend` | 443 (Render Static Site) | React app — Dashboard + Workbench + Findings |
 
@@ -751,7 +750,7 @@ databases:
 - All secrets injected via Render environment groups; no secrets in `render.yaml` or the repo
 - Alembic migrations run as a one-off Render Job on each deploy before the API starts
 - Regression harness runs as a Background Worker triggered by a message from the Orchestrator, not a persistent process
-- Ollama is not deployed on Render — at production scale the Red Team Agent falls back to the frontier API (Claude/OpenAI); local Ollama is a local-dev optimisation only
+- All model calls are routed through the OpenRouter API
 - Slack webhook secret stored in Render environment secrets; webhook signature verified on every inbound request
 
 ### Environment Variables
@@ -763,8 +762,7 @@ OPENEMR_TEST_USERNAME=...   # Dedicated test account (Assumption 4)
 OPENEMR_TEST_PASSWORD=...   # Stored in Render environment secrets only
 
 # Models
-OPENROUTER_API_KEY=...   # Single key for all frontier model calls (GPT-4o, Claude Sonnet)
-OLLAMA_BASE_URL=http://ollama:11434
+OPENROUTER_API_KEY=...   # Single key for all model calls (Mistral-7B, GPT-4o, Claude Sonnet)
 
 # Infrastructure
 DATABASE_URL=postgresql://user:pass@postgres:5432/agentforge_adversarial_ai_security_platform
@@ -805,10 +803,10 @@ DAILY_COST_CAP_USD=50.00
 
 | Scale | Est. monthly cost | Dominant driver | Architecture change needed |
 |---|---|---|---|
-| 100 runs | ~$5–15 | Frontier model calls (Judge, Orchestrator, Docs) | None |
-| 1K runs | ~$50–150 | Same; Ollama absorbs Red Team cost | None |
-| 10K runs | ~$400–900 | Judge Agent at scale | Move Judge to fine-tuned local model with rubric baked in |
-| 100K runs | ~$2K–6K | All frontier calls | Full local inference stack; frontier for orchestration only |
+| 100 runs | ~$5–15 | Model calls (Judge, Orchestrator, Docs) | None |
+| 1K runs | ~$50–150 | Same; Mistral-7B via OpenRouter keeps Red Team cost low | None |
+| 10K runs | ~$400–900 | Judge Agent at scale | Move Judge to a cheaper OpenRouter model with rubric baked in |
+| 100K runs | ~$2K–6K | All model calls | Switch high-volume agents to cheaper OpenRouter models; frontier for orchestration only |
 
 Actual dev spend and detailed per-agent projections are in `COST_ANALYSIS.md`.
 
@@ -849,7 +847,7 @@ AgentForge Adversarial AI Security Platform is itself an offensive security plat
 
 ## Known Tradeoffs
 
-**Red Team model refusal risk.** Even carefully prompted frontier models occasionally refuse to generate offensive content. Mitigation: Mistral-7B via Ollama as the primary Red Team model; it has no refusal training for security research content. The fallback to Claude uses a tightly scoped system prompt that keeps the agent within the registered target surface.
+**Red Team model refusal risk.** Even carefully prompted frontier models occasionally refuse to generate offensive content. Mitigation: Mistral-7B via OpenRouter as the primary Red Team model; it has no refusal training for security research content. The fallback to Claude uses a tightly scoped system prompt that keeps the agent within the registered target surface.
 
 **Judge drift over time.** As the Clinical Co-Pilot evolves, the Judge's rubric can silently become misaligned with actual system behavior. Mitigation: versioned rubric stored in the state store, ground-truth eval set re-run on every rubric change, and a dashboard alert if the Judge's success rate deviates more than 15 percentage points from its 30-day baseline.
 
@@ -857,4 +855,4 @@ AgentForge Adversarial AI Security Platform is itself an offensive security plat
 
 **Autonomous overnight runs are hard to audit.** Mitigation: every agent action is a structured log entry with a session ID, enabling full replay of any run from the `agent_events` table.
 
-**Local Ollama is slow on CPU.** GPU-accelerated inference is strongly recommended for Red Team Agent throughput above ~100 attacks/hour. Fallback to frontier API at cost if GPU is unavailable.
+**OpenRouter rate limits may throttle high-volume runs.** At scale (10K+ attacks/session), OpenRouter rate limits on cheaper models can constrain Red Team Agent throughput. Mitigation: distribute load across multiple OpenRouter model endpoints and set session cost caps to avoid burst spend.
