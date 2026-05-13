@@ -17,7 +17,7 @@ services:
       - fromGroup: agentforge-secrets
       - key: DATABASE_URL
         fromDatabase:
-          name: agentforge-postgres
+          name: agentforge-adversarial-ai-security-platform-postgres
           property: connectionString
       - key: REDIS_URL
         fromService:
@@ -45,7 +45,7 @@ services:
         destination: /index.html
 
 databases:
-  - name: agentforge-postgres
+  - name: agentforge-adversarial-ai-security-platform-postgres
     plan: basic-256mb
     databaseName: agentforge
     user: agentforge
