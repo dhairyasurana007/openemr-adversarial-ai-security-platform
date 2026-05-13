@@ -1,36 +1,36 @@
 import type { CoverageMap as CoverageMapRow } from "../api/types";
 
-const riskColor: Record<string, string> = {
-  CRITICAL: "#b91c1c",
-  HIGH: "#ea580c",
-  MEDIUM: "#ca8a04",
-  LOW: "#16a34a",
-};
+function riskClass(risk: string) {
+  return { CRITICAL: "danger", HIGH: "warning", MEDIUM: "warning", LOW: "success" }[risk] ?? "success";
+}
 
 export function CoverageMap({ rows }: { rows: CoverageMapRow[] }) {
+  if (rows.length === 0) {
+    return <div className="empty"><div className="empty-text">No coverage data yet</div></div>;
+  }
+
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
-          <th align="left">Category</th>
-          <th align="left">Coverage</th>
-          <th align="left">Residual Risk</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => {
-          const ratio = row.total_attacks > 0 ? row.success_count / row.total_attacks : 0;
-          return (
-            <tr key={row.attack_category}>
-              <td>{row.attack_category}</td>
-              <td>
-                <progress max={1} value={ratio} style={{ width: "100%" }} />
-              </td>
-              <td style={{ color: riskColor[row.residual_risk] ?? "#000" }}>{row.residual_risk}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      {rows.map((row) => {
+        const ratio = row.total_attacks > 0 ? row.success_count / row.total_attacks : 0;
+        return (
+          <div key={row.attack_category}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <span style={{ color: "var(--text)", fontSize: 13, fontWeight: 500 }}>{row.attack_category}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span className="text-muted text-sm">{row.total_attacks} attacks</span>
+                <span className={`badge badge-${row.residual_risk.toLowerCase()}`}>{row.residual_risk}</span>
+              </div>
+            </div>
+            <div className="progress-bar">
+              <div
+                className={`progress-fill ${riskClass(row.residual_risk)}`}
+                style={{ width: `${Math.round(ratio * 100)}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
