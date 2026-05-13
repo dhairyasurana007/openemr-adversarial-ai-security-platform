@@ -17,6 +17,11 @@ from api.slack_handler import router as slack_router
 from api.websocket import router as ws_router
 
 app = FastAPI(title="AgentForge API", version="1.0.0")
+
+
+@app.get("/")
+async def health_check() -> dict:
+    return {"status": "ok", "service": "AgentForge API"}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
