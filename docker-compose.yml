@@ -1,0 +1,84 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: agentforge
+      POSTGRES_USER: agentforge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "agentforge"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  agentforge-adversarial-ai-security-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentforge:${POSTGRES_PASSWORD}@postgres:5432/agentforge
+      REDIS_URL: redis://redis:6379
+
+  agentforge-adversarial-ai-security-platform-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python orchestration/worker.py
+    env_file: .env
+    depends_on:
+      - agentforge-adversarial-ai-security-platform
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentforge:${POSTGRES_PASSWORD}@postgres:5432/agentforge
+      REDIS_URL: redis://redis:6379
+      HTTPS_PROXY: http://proxy:8888
+
+  regression-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python regression/harness.py
+    env_file: .env
+    depends_on:
+      - agentforge-adversarial-ai-security-platform-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentforge:${POSTGRES_PASSWORD}@postgres:5432/agentforge
+
+  proxy:
+    image: mitmproxy/mitmproxy:10
+    command: mitmdump --mode transparent --scripts /scripts/proxy_allowlist.py
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./security:/scripts:ro
+    environment:
+      TARGET_URL: ${TARGET_URL}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "443:80"
+    depends_on:
+      - agentforge-adversarial-ai-security-platform
+
+volumes:
+  postgres_data:
+  redis_data:

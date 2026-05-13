@@ -208,3 +208,17 @@ jobs:
       - run: cd frontend && npx tsc --noEmit
       - run: cd frontend && npm audit --audit-level=high
 
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: |
+          echo "POSTGRES_PASSWORD=test_password" >> .env
+          echo "TARGET_URL=https://copilot.example.com" >> .env
+      - run: docker compose build --no-cache
+      - run: docker compose up -d
+      - run: sleep 15
+      - run: curl -f http://localhost:8000/docs
+      - run: docker compose down
+
