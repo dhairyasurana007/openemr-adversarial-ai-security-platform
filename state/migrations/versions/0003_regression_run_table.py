@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 revision = "0003_regression_run_table"
 down_revision = "0002_taxonomy_table"
@@ -17,6 +18,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    if inspector.has_table("regression_run"):
+        return
+
     op.create_table(
         "regression_run",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), nullable=False),
