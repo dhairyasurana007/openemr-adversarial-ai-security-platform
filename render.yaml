@@ -26,8 +26,8 @@ services:
           type: keyvalue
           name: agentforge-adversarial-ai-security-platform-redis
           property: connectionString
-    buildCommand: pip install -r requirements.txt && alembic upgrade head
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
+    buildCommand: pip install -r requirements.txt
+    startCommand: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
 
   - type: keyvalue
     name: agentforge-adversarial-ai-security-platform-redis
