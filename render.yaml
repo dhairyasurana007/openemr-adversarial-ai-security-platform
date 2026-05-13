@@ -8,6 +8,11 @@ services:
     buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
 
+  - type: keyvalue
+    name: agentforge-redis
+    plan: starter
+    ipAllowList: []
+
   - type: worker
     name: agentforge-adversarial-ai-security-platform-worker
     runtime: python
@@ -41,12 +46,8 @@ services:
 
 databases:
   - name: agentforge-postgres
-    plan: standard
+    plan: basic-256mb
     databaseName: agentforge
     user: agentforge
     postgresMajorVersion: "16"
-    ipAllowList: []
-
-  - name: agentforge-redis
-    plan: standard
     ipAllowList: []
