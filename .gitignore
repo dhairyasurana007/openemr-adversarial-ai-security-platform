@@ -1,0 +1,34 @@
+﻿__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.dist/
+build/
+*.egg-info/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local env/secrets
+.env
+.env.*
+!.env.example
+
+# Runtime artifacts
+*.log
+vulnerability_reports/*.json
+target_config/whitebox/*.json
