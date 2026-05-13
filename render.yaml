@@ -15,12 +15,15 @@ services:
     plan: standard
     envVars:
       - fromGroup: agentforge-secrets
-      - key: PYTHON_VERSION
-        value: 3.13.5
-      - key: CARGO_HOME
-        value: /tmp/cargo
-      - key: PYO3_USE_ABI3_FORWARD_COMPATIBILITY
-        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agentforge-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: agentforge-redis
+          property: connectionString
     buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
 
@@ -28,37 +31,6 @@ services:
     name: agentforge-redis
     plan: starter
     ipAllowList: []
-
-  - type: worker
-    name: agentforge-adversarial-ai-security-platform-worker
-    runtime: python
-    plan: standard
-    envVars:
-      - fromGroup: agentforge-secrets
-      - key: PYTHON_VERSION
-        value: 3.13.5
-      - key: CARGO_HOME
-        value: /tmp/cargo
-      - key: PYO3_USE_ABI3_FORWARD_COMPATIBILITY
-        value: "1"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python orchestration/worker.py
-
-  - type: worker
-    name: regression-worker
-    runtime: python
-    plan: standard
-    autoDeploy: false
-    envVars:
-      - fromGroup: agentforge-secrets
-      - key: PYTHON_VERSION
-        value: 3.13.5
-      - key: CARGO_HOME
-        value: /tmp/cargo
-      - key: PYO3_USE_ABI3_FORWARD_COMPATIBILITY
-        value: "1"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python regression/harness.py
 
   - type: web
     name: agentforge-adversarial-ai-security-platform-frontend
