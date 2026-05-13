@@ -32,3 +32,5 @@ Thumbs.db
 *.log
 vulnerability_reports/*.json
 target_config/whitebox/*.json
+.claude
+.env.example

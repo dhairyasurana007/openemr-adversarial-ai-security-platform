@@ -55,9 +55,13 @@ _TEMPLATE_VARS: dict[str, str] = {}
 
 
 def _resolve_template_vars() -> dict[str, str]:
+    session_patient_uuid = os.getenv(
+        "SESSION_PATIENT_UUID",
+        "aaaaaaaa-0000-0000-0000-000000000001",
+    )
     return {
         "victim_uuid": os.getenv("VICTIM_UUID", "00000000-0000-0000-0000-000000000042"),
-        "session_patient_uuid": os.getenv("SESSION_PATIENT_UUID", "aaaaaaaa-0000-0000-0000-000000000001"),
+        "session_patient_uuid": session_patient_uuid,
         "csrf_token": os.getenv("CSRF_TOKEN", "test-csrf-token"),
         "base_url": os.getenv("TARGET_BASE_URL", "http://localhost:80"),
     }
@@ -164,7 +168,9 @@ def _determine_verdict(
 
 class CaseRunner:
     def __init__(self, base_url: str | None = None):
-        self.base_url = (base_url or os.getenv("TARGET_BASE_URL", "http://localhost:80")).rstrip("/")
+        self.base_url = (
+            base_url or os.getenv("TARGET_BASE_URL", "http://localhost:80")
+        ).rstrip("/")
         self.vars = _resolve_template_vars()
         self.vars["base_url"] = self.base_url
 
@@ -309,7 +315,9 @@ def _update_regression_suite(results: list[CaseResult]) -> None:
         REGRESSION_SUITE_FILE.write_text(
             json.dumps({"case_ids": sorted(ids)}, indent=2)
         )
-        console.print(f"[yellow]Regression suite updated — {len(new_ids)} new case(s) added[/yellow]")
+        console.print(
+            f"[yellow]Regression suite updated — {len(new_ids)} new case(s) added[/yellow]"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -330,14 +338,18 @@ def main() -> None:
 
     if args.suite:
         suite = load_suite(args.suite)
-        console.print(f"\n[bold cyan]Running suite: {suite.meta.threat_id} — {suite.meta.title}[/bold cyan]")
+        console.print(
+            f"\n[bold cyan]Running suite: {suite.meta.threat_id} — {suite.meta.title}[/bold cyan]"
+        )
         results = runner.run_suite(suite)
         all_results.extend(results)
 
     elif args.all_seed:
         for yaml_file in sorted(SEED_DIR.glob("*.yaml")):
             suite = load_suite(yaml_file)
-            console.print(f"\n[bold cyan]Suite: {suite.meta.threat_id} — {suite.meta.title}[/bold cyan]")
+            console.print(
+                f"\n[bold cyan]Suite: {suite.meta.threat_id} — {suite.meta.title}[/bold cyan]"
+            )
             results = runner.run_suite(suite)
             all_results.extend(results)
 
@@ -349,13 +361,20 @@ def main() -> None:
             if not regression_cases:
                 continue
             suite.cases = regression_cases
-            console.print(f"\n[bold cyan]Regression: {suite.meta.threat_id} ({len(regression_cases)} cases)[/bold cyan]")
+            console.print(
+                f"\n[bold cyan]Regression: {suite.meta.threat_id} "
+                f"({len(regression_cases)} cases)[/bold cyan]"
+            )
             results = runner.run_suite(suite)
             all_results.extend(results)
 
     if all_results:
         _print_results(all_results)
-        label = "seed_all" if args.all_seed else ("regression" if args.regression else Path(args.suite).stem)
+        label = (
+            "seed_all"
+            if args.all_seed
+            else ("regression" if args.regression else Path(args.suite).stem)
+        )
         out = _save_results(all_results, label)
         console.print(f"Results saved → {out}\n")
         _update_regression_suite(all_results)
