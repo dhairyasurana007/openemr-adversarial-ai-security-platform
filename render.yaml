@@ -1,3 +1,7 @@
+envVarGroups:
+  - name: agentforge-secrets
+    envVars: []
+
 services:
   - type: web
     name: agentforge-adversarial-ai-security-platform-api
