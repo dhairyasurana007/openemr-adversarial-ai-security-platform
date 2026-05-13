@@ -2,6 +2,7 @@
 from state.models.campaign import Campaign
 from state.models.coverage import CoverageMap
 from state.models.event import AgentEvent
+from state.models.taxonomy import TaxonomyTechnique
 from state.models.verdict import Verdict
 from state.models.vulnerability import VulnerabilityReport
 
@@ -12,4 +13,5 @@ __all__ = [
     "VulnerabilityReport",
     "CoverageMap",
     "AgentEvent",
+    "TaxonomyTechnique",
 ]

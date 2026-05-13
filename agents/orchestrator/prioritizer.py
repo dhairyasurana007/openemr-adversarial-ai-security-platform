@@ -64,7 +64,9 @@ class CoveragePrioritizer:
         scored.sort(key=lambda item: item["score"], reverse=True)
         return scored
 
-    async def next_directive(self, db: AsyncSession, session_id: uuid.UUID) -> CampaignDirective | None:
+    async def next_directive(
+        self, db: AsyncSession, session_id: uuid.UUID
+    ) -> CampaignDirective | None:
         """
         1. Check daily cost from AgentEvent table; if >= DAILY_COST_CAP_USD, return None.
         2. Run score() to pick top-priority category.
@@ -106,13 +108,28 @@ class CoveragePrioritizer:
     async def _load_technique_ids(self, db: AsyncSession, category: str) -> list[str]:
         """Best-effort taxonomy lookup with deterministic fallback from THREAT_MODEL IDs."""
         try:
-            query = text(
-                "SELECT id FROM taxonomy_techniques "
-                "WHERE attack_category = :category "
-                "ORDER BY severity_prior DESC "
-                "LIMIT 10"
-            )
-            rows = (await db.execute(query, {"category": category})).all()
+            queries = [
+                text(
+                    "SELECT id FROM taxonomy_techniques "
+                    "WHERE category = :category "
+                    "ORDER BY severity_prior DESC "
+                    "LIMIT 10"
+                ),
+                text(
+                    "SELECT id FROM taxonomy_techniques "
+                    "WHERE attack_category = :category "
+                    "ORDER BY severity_prior DESC "
+                    "LIMIT 10"
+                ),
+            ]
+            rows = []
+            for query in queries:
+                try:
+                    rows = (await db.execute(query, {"category": category})).all()
+                except Exception:
+                    rows = []
+                if rows:
+                    break
             ids = [str(row[0]) for row in rows]
             if ids:
                 return ids
