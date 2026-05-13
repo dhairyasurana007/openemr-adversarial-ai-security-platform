@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from agents.orchestrator.prioritizer import CoveragePrioritizer
 from orchestration.messages import RegressionFlag
-from orchestration.queue import consume, publish
+from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
 from state.models.coverage import CoverageMap
 

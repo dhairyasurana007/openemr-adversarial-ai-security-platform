@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.auth import AuthUser, require_ciso, require_operator
 from api.websocket import publish_session_event
 from orchestration.messages import HumanApprovalResponse
-from orchestration.queue import publish
+from orchestration.redis_queue import publish
 from state.db import get_db
 from state.models.attack import AttackRecord
 from state.models.vulnerability import VulnerabilityReport

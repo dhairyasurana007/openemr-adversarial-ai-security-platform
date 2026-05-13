@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from evals import runner as eval_runner
 from evals.schemas import DetectionRule
 from orchestration.messages import Escalation, JudgeVerdict, RegressionFlag
-from orchestration.queue import consume, publish
+from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
 from state.models.verdict import Verdict as VerdictRow
 

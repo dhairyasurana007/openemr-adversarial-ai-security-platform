@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
 
 from api.auth import JWT_ALGORITHM, JWT_SECRET_KEY
-from orchestration.queue import get_redis
+from orchestration.redis_queue import get_redis
 
 router = APIRouter()
 

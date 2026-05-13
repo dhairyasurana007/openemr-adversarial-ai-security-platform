@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.auth import AuthUser, require_operator
 from orchestration.messages import CampaignDirective
-from orchestration.queue import publish
+from orchestration.redis_queue import publish
 from state.db import get_db
 from state.models.campaign import Campaign
 

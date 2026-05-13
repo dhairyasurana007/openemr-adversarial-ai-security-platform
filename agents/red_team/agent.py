@@ -20,7 +20,7 @@ from orchestration.messages import (
     HumanApprovalRequest,
     HumanApprovalResponse,
 )
-from orchestration.queue import consume, publish
+from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
 from state.models.campaign import Campaign
 

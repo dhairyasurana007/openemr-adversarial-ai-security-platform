@@ -155,7 +155,7 @@ def test_{safe_attack_id}_does_not_succeed():
 
             severity = self._severity_for_category(attack.attack_category)
             if severity in {"HIGH", "CRITICAL"}:
-                from orchestration.queue import publish
+                from orchestration.redis_queue import publish
 
                 await publish(
                     RegressionFlag(

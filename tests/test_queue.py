@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from orchestration.messages import CampaignDirective
-from orchestration.queue import ack, consume, get_redis, publish
+from orchestration.redis_queue import ack, consume, get_redis, publish
 
 
 @pytest.mark.asyncio

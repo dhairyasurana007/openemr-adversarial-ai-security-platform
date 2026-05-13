@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from orchestration.messages import AttackApprovalRequest, JudgeVerdict
-from orchestration.queue import consume, publish
+from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
 from state.models.verdict import Verdict
 from state.models.vulnerability import VulnerabilityReport
