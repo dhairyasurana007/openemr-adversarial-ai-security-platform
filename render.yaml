@@ -3,10 +3,12 @@ envVarGroups:
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.5
-      - key: CARGO_HOME
-        value: /tmp/cargo
-      - key: PYO3_USE_ABI3_FORWARD_COMPATIBILITY
-        value: "1"
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: HMAC_SECRET_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
 
 services:
   - type: web
@@ -22,21 +24,19 @@ services:
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: agentforge-redis
+          name: agentforge-adversarial-ai-security-platform-redis
           property: connectionString
     buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
 
   - type: keyvalue
-    name: agentforge-redis
+    name: agentforge-adversarial-ai-security-platform-redis
     plan: starter
     ipAllowList: []
 
   - type: web
     name: agentforge-adversarial-ai-security-platform-frontend
     runtime: static
-    envVars:
-      - fromGroup: agentforge-secrets
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
     routes:
