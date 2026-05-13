@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: agentforge-adversarial-ai-security-platform-api
+    runtime: python
+    plan: standard
+    envVars:
+      - fromGroup: agentforge-secrets
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  - type: worker
+    name: agentforge-adversarial-ai-security-platform-worker
+    runtime: python
+    plan: standard
+    envVars:
+      - fromGroup: agentforge-secrets
+    buildCommand: pip install -r requirements.txt
+    startCommand: python orchestration/worker.py
+
+  - type: worker
+    name: regression-worker
+    runtime: python
+    plan: standard
+    autoDeploy: false
+    envVars:
+      - fromGroup: agentforge-secrets
+    buildCommand: pip install -r requirements.txt
+    startCommand: python regression/harness.py
+
+  - type: web
+    name: agentforge-adversarial-ai-security-platform-frontend
+    runtime: static
+    envVars:
+      - fromGroup: agentforge-secrets
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: agentforge-postgres
+    plan: standard
+    private: true
+    databaseName: agentforge
+    user: agentforge
+    postgresMajorVersion: "16"
+    ipAllowList: []
+
+  - name: agentforge-redis
+    plan: standard
+    private: true
+    ipAllowList: []
