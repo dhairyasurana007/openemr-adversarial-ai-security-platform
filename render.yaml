@@ -42,7 +42,6 @@ services:
 databases:
   - name: agentforge-postgres
     plan: standard
-    private: true
     databaseName: agentforge
     user: agentforge
     postgresMajorVersion: "16"
@@ -50,5 +49,4 @@ databases:
 
   - name: agentforge-redis
     plan: standard
-    private: true
     ipAllowList: []
