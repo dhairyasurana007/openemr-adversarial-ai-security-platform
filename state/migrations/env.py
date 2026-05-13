@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from state.db import Base
+from state.db import Base, normalize_database_url
 import state.models  # noqa: F401
 
 config = context.config
@@ -24,7 +24,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 if os.getenv("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+    config.set_main_option("sqlalchemy.url", normalize_database_url(os.environ["DATABASE_URL"]))
 
 target_metadata = Base.metadata
 
