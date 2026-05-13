@@ -1,17 +1,13 @@
 import { Link, Route, Routes } from "react-router-dom";
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <section>
-      <h2>{title}</h2>
-      <p>Commit 14 scaffold ready.</p>
-    </section>
-  );
-}
+import ApprovalQueue from "./pages/ApprovalQueue";
+import Dashboard from "./pages/Dashboard";
+import Findings from "./pages/Findings";
+import Workbench from "./pages/Workbench";
 
 export default function App() {
   return (
-    <main style={{ margin: "0 auto", maxWidth: 960, padding: "1rem" }}>
+    <main style={{ margin: "0 auto", maxWidth: 1080, padding: "1rem" }}>
       <h1>AgentForge</h1>
       <nav style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>
         <Link to="/">Dashboard</Link>
@@ -20,10 +16,10 @@ export default function App() {
         <Link to="/approvals">Approvals</Link>
       </nav>
       <Routes>
-        <Route path="/" element={<Placeholder title="Dashboard" />} />
-        <Route path="/workbench" element={<Placeholder title="Workbench" />} />
-        <Route path="/findings" element={<Placeholder title="Findings" />} />
-        <Route path="/approvals" element={<Placeholder title="Approval Queue" />} />
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/workbench" element={<Workbench />} />
+        <Route path="/findings" element={<Findings />} />
+        <Route path="/approvals" element={<ApprovalQueue />} />
       </Routes>
     </main>
   );
