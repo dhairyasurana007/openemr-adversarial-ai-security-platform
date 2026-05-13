@@ -108,3 +108,26 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m pytest tests/test_red_team.py -v
 
+  test-graph:
+    runs-on: ubuntu-latest
+    env:
+      OPENROUTER_API_KEY: "mock"
+      DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/db
+      REDIS_URL: redis://localhost:6379
+      TARGET_BASE_URL: "http://localhost:8080"
+      SESSION_COOKIE: "PHPSESSID=test"
+      CSRF_TOKEN: "test_csrf"
+      SESSION_PATIENT_UUID: "aaaaaaaa-0000-0000-0000-000000000001"
+      VICTIM_UUID: "bbbbbbbb-0000-0000-0000-000000000002"
+      SLACK_WEBHOOK_URL: "https://example.com/webhook"
+      APPROVAL_CHANNEL: "#security"
+      HMAC_SECRET_KEY: "ci-test-secret"
+      SESSION_COST_CAP_USD: "5.00"
+      DAILY_COST_CAP_USD: "50.00"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - run: python -m pytest tests/test_graph.py -v
+
