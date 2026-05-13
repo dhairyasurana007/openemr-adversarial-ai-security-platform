@@ -1,6 +1,7 @@
 import api from "./client";
 import type {
   AgentEvent,
+  CampaignCreateResponse,
   CoverageMap,
   HumanApprovalRequest,
   TechniqueRecord,
@@ -38,7 +39,7 @@ export async function fetchUncertain() {
 }
 
 export async function createCampaign(payload: Record<string, unknown>) {
-  const { data } = await api.post("/campaigns", payload);
+  const { data } = await api.post<CampaignCreateResponse>("/campaigns", payload);
   return data;
 }
 

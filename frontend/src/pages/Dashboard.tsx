@@ -12,6 +12,7 @@ export default function Dashboard() {
 
   const token = localStorage.getItem("agentforge_token") ?? "";
   const sessionId = localStorage.getItem("agentforge_session_id") ?? "";
+  const targetUrl = localStorage.getItem("agentforge_target_url") ?? "Not configured";
 
   useWebSocket({
     sessionId,
@@ -30,6 +31,9 @@ export default function Dashboard() {
       <div className="page-header">
         <div className="page-title">Dashboard</div>
         <div className="page-subtitle">Live overview of adversarial campaign activity</div>
+        <div className="card-meta" style={{ marginTop: "0.35rem" }}>
+          Target Endpoint: <span className="font-mono">{targetUrl}</span>
+        </div>
       </div>
 
       <div className="grid grid-4 mb-2">

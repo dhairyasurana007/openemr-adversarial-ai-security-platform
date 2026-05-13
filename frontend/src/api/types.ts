@@ -4,8 +4,15 @@ export interface Campaign {
   execution_mode: "auto" | "permissions";
   testing_mode: "whitebox" | "blackbox";
   target_category: string;
+  target_url?: string;
   status: string;
   cost_so_far_usd: number;
+}
+
+export interface CampaignCreateResponse {
+  id: string;
+  session_id: string;
+  status: string;
 }
 
 export interface AttackRecord {

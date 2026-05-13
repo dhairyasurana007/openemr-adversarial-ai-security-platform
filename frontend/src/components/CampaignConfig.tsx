@@ -8,6 +8,7 @@ export function CampaignConfig() {
     execution_mode: "auto",
     testing_mode: "blackbox",
     target_category: "prompt_injection",
+    target_url: localStorage.getItem("agentforge_target_url") ?? "http://localhost",
     seed_case_ids: "T01-001",
     mutation_depth: 2,
     cost_cap_usd: 5,
@@ -20,9 +21,13 @@ export function CampaignConfig() {
         ...form,
         seed_case_ids: form.seed_case_ids.split(",").map((s) => s.trim()).filter(Boolean),
         technique_ids: [],
-        target_url: "http://localhost",
         connection_path: "copilot_endpoint",
       }),
+    onSuccess: (data) => {
+      localStorage.setItem("agentforge_session_id", data.session_id);
+      localStorage.setItem("agentforge_campaign_id", data.id);
+      localStorage.setItem("agentforge_target_url", form.target_url);
+    },
   });
 
   return (
@@ -52,6 +57,13 @@ export function CampaignConfig() {
           <label className="form-label">Target Category</label>
           <input className="form-input" value={form.target_category}
             onChange={(e) => setForm((s) => ({ ...s, target_category: e.target.value }))} />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Target Endpoint URL</label>
+          <input className="form-input" value={form.target_url}
+            placeholder="https://target.example/api"
+            onChange={(e) => setForm((s) => ({ ...s, target_url: e.target.value }))} />
         </div>
 
         <div className="form-group">
