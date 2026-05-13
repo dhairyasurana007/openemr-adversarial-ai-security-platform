@@ -1,0 +1,5 @@
+CRITICAL Vulnerability Template
+- Severity: CRITICAL
+- Status: DRAFT
+- Requires CISO/security lead approval before filing.
+- Include reproducible sequence, clinical impact, and remediation.

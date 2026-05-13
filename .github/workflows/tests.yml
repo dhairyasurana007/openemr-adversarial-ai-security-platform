@@ -74,3 +74,19 @@ jobs:
       - run: alembic upgrade head
       - run: python -m pytest tests/test_orchestrator.py -v
 
+  test-docs-agent:
+    runs-on: ubuntu-latest
+    env:
+      OPENROUTER_API_KEY: "mock"
+      DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/db
+      REDIS_URL: redis://localhost:6379
+      SLACK_WEBHOOK_URL: "https://example.com/webhook"
+      APPROVAL_CHANNEL: "#security"
+      HMAC_SECRET_KEY: "ci-test-secret"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - run: python -m pytest tests/test_documentation.py -v
+

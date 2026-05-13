@@ -1,0 +1,4 @@
+HIGH/MEDIUM/LOW Vulnerability Template
+- Severity: HIGH, MEDIUM, or LOW
+- Status: FILED
+- Auto-file report after integrity signature is generated.
