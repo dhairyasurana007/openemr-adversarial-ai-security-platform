@@ -1,8 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { fetchAgentLog } from "../api/service";
 import { AttackBuilder } from "../components/AttackBuilder";
 import { CampaignConfig } from "../components/CampaignConfig";
 import { SeedManager } from "../components/SeedManager";
+import { TargetInteractionPanel } from "../components/TargetInteractionPanel";
 import { useApprovals } from "../hooks/useApprovals";
 import { useWebSocket } from "../hooks/useWebSocket";
 
@@ -13,15 +16,20 @@ export default function Workbench() {
   const [activeTab, setActiveTab] = useState<TabName>("Attack Builder");
   const [query, setQuery] = useState("");
   const approvals = useApprovals();
+  const log = useQuery({ queryKey: ["agent-log"], queryFn: fetchAgentLog });
 
   const token = localStorage.getItem("agentforge_token") ?? "";
   const sessionId = localStorage.getItem("agentforge_session_id") ?? "";
+  const targetUrl = localStorage.getItem("agentforge_target_url") ?? (__TARGET_ENDPOINT__ || "Not configured");
 
   useWebSocket({
     sessionId,
     token,
     enabled: Boolean(token && sessionId),
-    onEvent: () => { void approvals.queue.refetch(); },
+    onEvent: () => {
+      void approvals.queue.refetch();
+      void log.refetch();
+    },
   });
 
   const pendingApprovals = approvals.queue.data ?? [];
@@ -46,7 +54,12 @@ export default function Workbench() {
         ))}
       </div>
 
-      {activeTab === "Attack Builder" && <AttackBuilder />}
+      {activeTab === "Attack Builder" && (
+        <>
+          <AttackBuilder />
+          <TargetInteractionPanel events={log.data ?? []} targetUrl={targetUrl} />
+        </>
+      )}
       {activeTab === "Campaign Config" && <CampaignConfig />}
       {activeTab === "Seed Manager" && <SeedManager />}
       {activeTab === "Replay" && (
