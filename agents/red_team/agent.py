@@ -5,7 +5,9 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import httpx
@@ -23,6 +25,8 @@ from orchestration.messages import (
 from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
 from state.models.campaign import Campaign
+from state.models.event import AgentEvent
+from api.websocket import publish_session_event
 
 from agents.red_team.mutator import Mutator
 
@@ -38,7 +42,9 @@ MODEL_COST_PER_1K_TOKENS_USD = {
 class RedTeamAgent:
     def __init__(self) -> None:
         self.openrouter_api_key = os.environ["OPENROUTER_API_KEY"]
-        self.target_base_url = os.environ["TARGET_BASE_URL"].rstrip("/")
+        self.target_endpoint = os.environ["TARGET_ENDPOINT"].rstrip("/")
+        base_from_endpoint = urlsplit(self.target_endpoint)
+        self.target_base_url = f"{base_from_endpoint.scheme}://{base_from_endpoint.netloc}"
         self.session_cookie = os.environ["SESSION_COOKIE"]
         self.csrf_token = os.environ["CSRF_TOKEN"]
         self.session_patient_uuid = os.environ["SESSION_PATIENT_UUID"]
@@ -100,7 +106,11 @@ class RedTeamAgent:
                 directive = directive.model_copy(update={"mutation_depth": directive.mutation_depth + 1})
                 sequence, _ = self.generate_sequence(directive)
 
-        status_code, target_response = await self.execute_attack(sequence, directive.connection_path)
+        status_code, target_response = await self.execute_attack(
+            sequence,
+            directive.connection_path,
+            session_id=UUID(str(directive.session_id)),
+        )
 
         async with self.session_maker() as session:
             attack_row = AttackRecord(
@@ -217,29 +227,103 @@ class RedTeamAgent:
         self,
         prompt_sequence: list[dict[str, str]],
         connection_path: str,
+        session_id: UUID | None = None,
     ) -> tuple[int, str]:
-        endpoint = "/api/clinical-copilot/chat" if connection_path == "copilot_endpoint" else "/internal/eval"
+        target_url = (
+            self.target_endpoint
+            if connection_path == "copilot_endpoint"
+            else f"{self.target_base_url}/internal/eval"
+        )
         headers = {
             "Content-Type": "application/json",
+            "Accept": "application/json",
             "X-CSRF-Token": self.csrf_token,
             "Cookie": self.session_cookie,
         }
-        if self.internal_secret and connection_path == "fastapi_direct":
+        if self.internal_secret:
             headers["X-Clinical-Copilot-Internal-Secret"] = self.internal_secret
 
-        payload = {
-            "messages": prompt_sequence,
-            "patient_uuid": self.session_patient_uuid,
-            "target_patient_uuid": self.victim_uuid,
-        }
+        if connection_path == "copilot_endpoint":
+            payload = {
+                "message": "\n".join(
+                    f"{turn.get('role', 'user')}: {turn.get('content', '')}" for turn in prompt_sequence
+                ),
+                "surface": "chat",
+                "use_rag": True,
+            }
+        else:
+            payload = {
+                "messages": prompt_sequence,
+                "patient_uuid": self.session_patient_uuid,
+                "target_patient_uuid": self.victim_uuid,
+            }
+
+        started = perf_counter()
+        trace_id = str(uuid4())
+        if session_id is not None:
+            await self._record_target_event(
+                session_id=session_id,
+                event_type="target_http.request",
+                payload={
+                    "trace_id": trace_id,
+                    "method": "POST",
+                    "url": target_url,
+                    "connection_path": connection_path,
+                    "request_body": payload,
+                },
+            )
 
         async with httpx.AsyncClient(
             verify=False,
             timeout=30.0,
             proxy=os.getenv("HTTPS_PROXY", "http://proxy:8888"),
         ) as client:
-            response = await client.post(f"{self.target_base_url}{endpoint}", headers=headers, json=payload)
+            try:
+                response = await client.post(target_url, headers=headers, json=payload)
+            except Exception as exc:
+                if session_id is not None:
+                    await self._record_target_event(
+                        session_id=session_id,
+                        event_type="target_http.error",
+                        payload={
+                            "trace_id": trace_id,
+                            "method": "POST",
+                            "url": target_url,
+                            "connection_path": connection_path,
+                            "duration_ms": round((perf_counter() - started) * 1000, 2),
+                            "error_message": str(exc),
+                        },
+                    )
+                raise
+        if session_id is not None:
+            await self._record_target_event(
+                session_id=session_id,
+                event_type="target_http.response",
+                payload={
+                    "trace_id": trace_id,
+                    "method": "POST",
+                    "url": target_url,
+                    "connection_path": connection_path,
+                    "status": int(response.status_code),
+                    "duration_ms": round((perf_counter() - started) * 1000, 2),
+                    "response_body": response.text[:4000],
+                },
+            )
         return int(response.status_code), response.text
+
+    async def _record_target_event(self, session_id: UUID, event_type: str, payload: dict[str, Any]) -> None:
+        async with self.session_maker() as session:
+            session.add(
+                AgentEvent(
+                    session_id=session_id,
+                    agent="red_team",
+                    event_type=event_type,
+                    payload=payload,
+                    cost_delta_usd=0.0,
+                )
+            )
+            await session.commit()
+        await publish_session_event(session_id, {"event_type": event_type, "payload": payload})
 
     def _load_seed_cases(self, seed_case_ids: list[str]) -> list[dict[str, Any]]:
         seed_dir = Path(__file__).parents[2] / "evals" / "seed"

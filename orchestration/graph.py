@@ -127,7 +127,7 @@ class AgentGraph:
                 sequence, _ = self.red_team.generate_sequence(directive)
 
         status_code, target_response = await self.red_team.execute_attack(
-            sequence, directive.connection_path
+            sequence, directive.connection_path, session_id=UUID(str(directive.session_id))
         )
         attack_record = {
             "id": uuid4(),

@@ -11,6 +11,7 @@ os.environ.setdefault("OPENROUTER_API_KEY", "mock")
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost:5432/db")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379")
 os.environ.setdefault("TARGET_BASE_URL", "http://localhost:8080")
+os.environ.setdefault("TARGET_ENDPOINT", "http://localhost:8080/v1/multimodal-chat")
 os.environ.setdefault("SESSION_COOKIE", "PHPSESSID=test")
 os.environ.setdefault("CSRF_TOKEN", "test_csrf")
 os.environ.setdefault("SESSION_PATIENT_UUID", "aaaaaaaa-0000-0000-0000-000000000001")
@@ -92,8 +93,9 @@ async def test_execute_attack_rejects_in_permissions_mode_without_calling_target
 
 @pytest.mark.asyncio
 async def test_execute_attack_uses_edited_sequence() -> None:
-    async def _exec(seq, _path):
+    async def _exec(seq, _path, session_id=None):
         assert seq == [{"role": "user", "content": "edited"}]
+        assert session_id is not None
         return 200, "ok"
 
     graph = _build_graph()

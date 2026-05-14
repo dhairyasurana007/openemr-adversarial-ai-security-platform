@@ -3,14 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAgentLog } from "../api/service";
 import { CoverageMap } from "../components/CoverageMap";
 import { VerdictTrend } from "../components/VerdictTrend";
-import { useApiTraffic } from "../hooks/useApiTraffic";
 import { useCoverage } from "../hooks/useCoverage";
 import { useWebSocket } from "../hooks/useWebSocket";
 
 export default function Dashboard() {
   const { coverage, trends, cost, uncertain } = useCoverage();
   const log = useQuery({ queryKey: ["agent-log"], queryFn: fetchAgentLog });
-  const apiTraffic = useApiTraffic();
 
   const token = localStorage.getItem("agentforge_token") ?? "";
   const sessionId = localStorage.getItem("agentforge_session_id") ?? "";
@@ -27,6 +25,11 @@ export default function Dashboard() {
   const uncertainCount = uncertain.data?.length ?? 0;
   const successCount = (coverage.data ?? []).reduce((s, r) => s + r.success_count, 0);
   const totalAttacks = (coverage.data ?? []).reduce((s, r) => s + r.total_attacks, 0);
+  const targetTraffic = (log.data ?? []).filter((e) =>
+    e.event_type === "target_http.request"
+    || e.event_type === "target_http.response"
+    || e.event_type === "target_http.error",
+  );
 
   return (
     <>
@@ -108,51 +111,54 @@ export default function Dashboard() {
       </div>
 
       <div className="card mt-2">
-        <div className="card-title">REST API Traffic (Live)</div>
+        <div className="card-title">Target Interaction (Live)</div>
         <div style={{ maxHeight: 320, overflow: "auto", marginTop: "0.6rem" }}>
-          {apiTraffic.length === 0 ? (
-            <div className="empty"><div className="empty-text">No API traffic yet</div></div>
+          {targetTraffic.length === 0 ? (
+            <div className="empty"><div className="empty-text">No target interaction yet</div></div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-              {apiTraffic.slice(0, 30).map((entry) => (
-                <div key={`${entry.id}:${entry.phase}:${entry.timestamp}`} style={{ border: "1px solid var(--border)", background: "var(--surface)", borderRadius: "var(--radius)", padding: "0.65rem 0.75rem" }}>
+              {targetTraffic.slice(0, 30).map((entry) => {
+                const payload = entry.payload as Record<string, unknown>;
+                const phase = entry.event_type.replace("target_http.", "");
+                return (
+                <div key={entry.id} style={{ border: "1px solid var(--border)", background: "var(--surface)", borderRadius: "var(--radius)", padding: "0.65rem 0.75rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                      <span className="badge badge-filed">{entry.method}</span>
-                      <span className={`badge ${entry.phase === "error" ? "badge-critical" : entry.phase === "response" ? "badge-patched" : "badge-uncertain"}`}>
-                        {entry.phase.toUpperCase()}
+                      <span className="badge badge-filed">{String(payload.method ?? "POST")}</span>
+                      <span className={`badge ${phase === "error" ? "badge-critical" : phase === "response" ? "badge-patched" : "badge-uncertain"}`}>
+                        {phase.toUpperCase()}
                       </span>
-                      {entry.status !== undefined && (
-                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>HTTP {entry.status}</span>
+                      {payload.status !== undefined && (
+                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>HTTP {String(payload.status)}</span>
                       )}
-                      {entry.duration_ms !== undefined && (
-                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{entry.duration_ms}ms</span>
+                      {payload.duration_ms !== undefined && (
+                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{String(payload.duration_ms)}ms</span>
                       )}
                     </div>
                     <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                      {new Date(entry.timestamp).toLocaleTimeString()}
+                      {new Date(entry.created_at).toLocaleTimeString()}
                     </span>
                   </div>
                   <div className="font-mono text-sm" style={{ marginTop: "0.35rem", color: "var(--text)" }}>
-                    {entry.url}
+                    {String(payload.url ?? targetUrl)}
                   </div>
-                  {entry.request_body !== undefined && (
+                  {payload.request_body !== undefined && (
                     <pre className="font-mono text-sm" style={{ marginTop: "0.45rem", whiteSpace: "pre-wrap", wordBreak: "break-word", color: "var(--text-secondary)" }}>
-                      req: {JSON.stringify(entry.request_body, null, 2)}
+                      req: {JSON.stringify(payload.request_body, null, 2)}
                     </pre>
                   )}
-                  {entry.response_body !== undefined && (
+                  {payload.response_body !== undefined && (
                     <pre className="font-mono text-sm" style={{ marginTop: "0.35rem", whiteSpace: "pre-wrap", wordBreak: "break-word", color: "var(--text-secondary)" }}>
-                      res: {JSON.stringify(entry.response_body, null, 2)}
+                      res: {JSON.stringify(payload.response_body, null, 2)}
                     </pre>
                   )}
-                  {entry.error_message && (
+                  {payload.error_message && (
                     <div className="text-sm" style={{ marginTop: "0.35rem", color: "var(--danger)" }}>
-                      {entry.error_message}
+                      {String(payload.error_message)}
                     </div>
                   )}
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </div>
