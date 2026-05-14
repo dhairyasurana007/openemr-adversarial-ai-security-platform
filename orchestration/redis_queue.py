@@ -18,14 +18,14 @@ from orchestration.messages import (
     RegressionFlag,
 )
 
-REDIS_URL = os.environ["REDIS_URL"]
 _client: aioredis.Redis | None = None
 
 
 async def get_redis() -> aioredis.Redis:
     global _client
     if _client is None:
-        _client = aioredis.from_url(REDIS_URL, decode_responses=True)
+        redis_url = os.environ["REDIS_URL"]
+        _client = aioredis.from_url(redis_url, decode_responses=True)
     return _client
 
 
