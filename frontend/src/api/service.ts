@@ -70,3 +70,13 @@ export async function decideReportApproval(reportId: string, decision: string) {
   const { data } = await api.post(`/approvals/report/${reportId}`, { decision });
   return data;
 }
+
+export async function fireManualAttack(payload: {
+  message: string;
+  surface: "chat";
+  use_rag: boolean;
+  session_id?: string;
+}) {
+  const { data } = await api.post<{ status_code: number; response: unknown }>("/attacks/manual-fire", payload);
+  return data;
+}
