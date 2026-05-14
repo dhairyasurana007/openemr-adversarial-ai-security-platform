@@ -4,11 +4,12 @@ import { useState } from "react";
 import { createCampaign } from "../api/service";
 
 export function CampaignConfig() {
+  const defaultTargetUrl = __TARGET_ENDPOINT__ || "http://localhost";
   const [form, setForm] = useState({
     execution_mode: "auto",
     testing_mode: "blackbox",
     target_category: "prompt_injection",
-    target_url: localStorage.getItem("agentforge_target_url") ?? "http://localhost",
+    target_url: localStorage.getItem("agentforge_target_url") ?? defaultTargetUrl,
     seed_case_ids: "T01-001",
     mutation_depth: 2,
     cost_cap_usd: 5,

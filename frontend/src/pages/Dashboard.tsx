@@ -3,16 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAgentLog } from "../api/service";
 import { CoverageMap } from "../components/CoverageMap";
 import { VerdictTrend } from "../components/VerdictTrend";
+import { useApiTraffic } from "../hooks/useApiTraffic";
 import { useCoverage } from "../hooks/useCoverage";
 import { useWebSocket } from "../hooks/useWebSocket";
 
 export default function Dashboard() {
   const { coverage, trends, cost, uncertain } = useCoverage();
   const log = useQuery({ queryKey: ["agent-log"], queryFn: fetchAgentLog });
+  const apiTraffic = useApiTraffic();
 
   const token = localStorage.getItem("agentforge_token") ?? "";
   const sessionId = localStorage.getItem("agentforge_session_id") ?? "";
-  const targetUrl = localStorage.getItem("agentforge_target_url") ?? "Not configured";
+  const targetUrl = localStorage.getItem("agentforge_target_url") ?? (__TARGET_ENDPOINT__ || "Not configured");
 
   useWebSocket({
     sessionId,
@@ -102,6 +104,57 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="card mt-2">
+        <div className="card-title">REST API Traffic (Live)</div>
+        <div style={{ maxHeight: 320, overflow: "auto", marginTop: "0.6rem" }}>
+          {apiTraffic.length === 0 ? (
+            <div className="empty"><div className="empty-text">No API traffic yet</div></div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              {apiTraffic.slice(0, 30).map((entry) => (
+                <div key={`${entry.id}:${entry.phase}:${entry.timestamp}`} style={{ border: "1px solid var(--border)", background: "var(--surface)", borderRadius: "var(--radius)", padding: "0.65rem 0.75rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <span className="badge badge-filed">{entry.method}</span>
+                      <span className={`badge ${entry.phase === "error" ? "badge-critical" : entry.phase === "response" ? "badge-patched" : "badge-uncertain"}`}>
+                        {entry.phase.toUpperCase()}
+                      </span>
+                      {entry.status !== undefined && (
+                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>HTTP {entry.status}</span>
+                      )}
+                      {entry.duration_ms !== undefined && (
+                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{entry.duration_ms}ms</span>
+                      )}
+                    </div>
+                    <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                      {new Date(entry.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="font-mono text-sm" style={{ marginTop: "0.35rem", color: "var(--text)" }}>
+                    {entry.url}
+                  </div>
+                  {entry.request_body !== undefined && (
+                    <pre className="font-mono text-sm" style={{ marginTop: "0.45rem", whiteSpace: "pre-wrap", wordBreak: "break-word", color: "var(--text-secondary)" }}>
+                      req: {JSON.stringify(entry.request_body, null, 2)}
+                    </pre>
+                  )}
+                  {entry.response_body !== undefined && (
+                    <pre className="font-mono text-sm" style={{ marginTop: "0.35rem", whiteSpace: "pre-wrap", wordBreak: "break-word", color: "var(--text-secondary)" }}>
+                      res: {JSON.stringify(entry.response_body, null, 2)}
+                    </pre>
+                  )}
+                  {entry.error_message && (
+                    <div className="text-sm" style={{ marginTop: "0.35rem", color: "var(--danger)" }}>
+                      {entry.error_message}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -42,6 +42,8 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://agentforge-adversarial-ai-security-platform-api.onrender.com/api
+      - key: TARGET_ENDPOINT
+        sync: false
     routes:
       - type: rewrite
         source: /*
