@@ -5,17 +5,14 @@ import { fetchAgentLog, fetchTargetEndpoint, runTargetHealthCheck } from "../api
 import { AttackBuilder } from "../components/AttackBuilder";
 import { CampaignConfig } from "../components/CampaignConfig";
 import { ChatInterface } from "../components/ChatInterface";
-import { SeedManager } from "../components/SeedManager";
+import { PostSession } from "../components/PostSession";
 import { SessionGate } from "../components/SessionGate";
 import type { TestingMode, WorkbenchMode } from "../components/SessionGate";
 import { TargetInteractionPanel } from "../components/TargetInteractionPanel";
 import { useApprovals } from "../hooks/useApprovals";
 import { useWebSocket } from "../hooks/useWebSocket";
 
-type SessionPhase = "pre_session" | "active";
-
-const sidebarTabs = ["Campaign Config", "Seed Manager", "Replay"] as const;
-type SidebarTab = (typeof sidebarTabs)[number];
+type SessionPhase = "pre_session" | "active" | "post_session";
 
 const MODE_LABELS: Record<WorkbenchMode, string> = {
   manual: "Manual",
@@ -31,9 +28,7 @@ export default function Workbench() {
     () => localStorage.getItem("agentforge_session_id") ?? "",
   );
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<SidebarTab>("Campaign Config");
-  const [replayQuery, setReplayQuery] = useState("");
+  const [wsEventCount, setWsEventCount] = useState(0);
 
   const approvals = useApprovals();
   const log = useQuery({ queryKey: ["agent-log"], queryFn: fetchAgentLog });
@@ -48,10 +43,11 @@ export default function Workbench() {
   useWebSocket({
     sessionId,
     token,
-    enabled: Boolean(token && sessionId && phase === "active"),
+    enabled: Boolean(token && sessionId && (phase === "active" || phase === "post_session")),
     onEvent: () => {
       void approvals.queue.refetch();
       void log.refetch();
+      setWsEventCount((n) => n + 1);
     },
   });
 
@@ -73,13 +69,28 @@ export default function Workbench() {
   }
 
   function endSession() {
-    setPhase("pre_session");
+    setPhase("post_session");
     setCampaignModalOpen(false);
-    setSidebarOpen(false);
+  }
+
+  function startNewSession() {
+    setPhase("pre_session");
   }
 
   if (phase === "pre_session") {
     return <SessionGate onStart={startSession} />;
+  }
+
+  if (phase === "post_session") {
+    return (
+      <PostSession
+        sessionId={sessionId}
+        mode={mode}
+        testingMode={testingMode}
+        onNewSession={startNewSession}
+        onRefetchSignal={wsEventCount}
+      />
+    );
   }
 
   const modeBadgeColor: Record<WorkbenchMode, string> = {
@@ -135,15 +146,6 @@ export default function Workbench() {
             {pendingApprovals.length} pending approval{pendingApprovals.length !== 1 ? "s" : ""}
           </span>
         )}
-        {mode !== "multi_sequence" && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setSidebarOpen((v) => !v)}
-          >
-            {sidebarOpen ? "Hide Tools" : "Advanced Tools"}
-          </button>
-        )}
         <button type="button" className="btn btn-danger btn-sm" onClick={endSession}>
           End Session
         </button>
@@ -198,53 +200,13 @@ export default function Workbench() {
     </div>
   );
 
-  const advancedSidebar = sidebarOpen && (
-    <div style={{ width: 400, flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-      <div className="tabs" style={{ width: "100%", flexWrap: "wrap" }}>
-        {sidebarTabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`tab${activeTab === tab ? " active" : ""}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-      {activeTab === "Campaign Config" && <CampaignConfig defaultTestingMode={testingMode} />}
-      {activeTab === "Seed Manager" && <SeedManager />}
-      {activeTab === "Replay" && (
-        <div className="card">
-          <div className="card-title">Replay Attack</div>
-          <div className="form-group mt-1">
-            <label className="form-label">Attack ID or Category</label>
-            <input
-              className="form-input"
-              value={replayQuery}
-              onChange={(e) => setReplayQuery(e.target.value)}
-              placeholder="e.g. T01-001 or prompt_injection"
-            />
-          </div>
-          <button type="button" className="btn btn-primary mt-2">Replay</button>
-          {replayQuery && (
-            <p className="text-muted mt-1">Query: <span className="font-mono">{replayQuery}</span></p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
   // ── Manual mode ──────────────────────────────────────────────────────────
   if (mode === "manual") {
     return (
-      <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start" }}>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {sessionHeader}
-          <ChatInterface targetUrl={targetUrl} sessionId={sessionId} />
-          {approvalQueue}
-        </div>
-        {advancedSidebar}
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {sessionHeader}
+        <ChatInterface targetUrl={targetUrl} sessionId={sessionId} />
+        {approvalQueue}
       </div>
     );
   }
@@ -253,25 +215,22 @@ export default function Workbench() {
   if (mode === "red_team") {
     return (
       <>
-        <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start" }}>
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {sessionHeader}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {sessionHeader}
 
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => setCampaignModalOpen(true)}
-              >
-                Launch Campaign
-              </button>
-              <span className="text-muted text-sm">Configure and dispatch a red team campaign against the target.</span>
-            </div>
-
-            <TargetInteractionPanel events={log.data ?? []} targetUrl={targetUrl} />
-            {approvalQueue}
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => setCampaignModalOpen(true)}
+            >
+              Launch Campaign
+            </button>
+            <span className="text-muted text-sm">Configure and dispatch a red team campaign against the target.</span>
           </div>
-          {advancedSidebar}
+
+          <TargetInteractionPanel events={log.data ?? []} targetUrl={targetUrl} />
+          {approvalQueue}
         </div>
 
         {/* Campaign config modal */}
