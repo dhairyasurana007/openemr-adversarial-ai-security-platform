@@ -53,7 +53,7 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
           <div className="form-group">
             <label className="form-label">Testing Mode</label>
             <select className="form-select" value={form.testing_mode}
-              onChange={(e) => setForm((s) => ({ ...s, testing_mode: e.target.value }))}>
+              onChange={(e) => setForm((s) => ({ ...s, testing_mode: e.target.value as "whitebox" | "blackbox" }))}>
               <option value="blackbox">Blackbox</option>
               <option value="whitebox">Whitebox</option>
             </select>
