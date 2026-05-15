@@ -12,6 +12,7 @@ from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from agents.logger import get_logger
 from agents.orchestrator.prioritizer import CoveragePrioritizer
 from orchestration.messages import RegressionFlag
 from orchestration.redis_queue import consume, publish
@@ -21,6 +22,7 @@ from state.models.coverage import CoverageMap
 
 class OrchestratorAgent:
     def __init__(self) -> None:
+        self.log = get_logger("orchestrator")
         self.engine = create_async_engine(os.environ["DATABASE_URL"], echo=False)
         self.session_maker = async_sessionmaker(self.engine, expire_on_commit=False)
         self.prioritizer = CoveragePrioritizer()
@@ -36,8 +38,14 @@ class OrchestratorAgent:
 
         prompt_path = Path(__file__).parent / "prompts" / "orchestrator_system.txt"
         self.system_prompt = prompt_path.read_text(encoding="utf-8")
+        self.log.info(
+            "initialized reassess_interval=%ds llm_model=%s",
+            self.reassess_interval_seconds,
+            self.llm_model,
+        )
 
     async def run_loop(self) -> None:
+        self.log.info("run loop started")
         while True:
             await self._reassess_priorities_if_needed(force=False)
 
@@ -45,9 +53,15 @@ class OrchestratorAgent:
                 directive = await self.prioritizer.next_directive(db, session_id=self._new_session_id())
 
             if directive is None:
+                self.log.warning("no directive available, pausing %ds", self.pause_seconds_on_cap)
                 await asyncio.sleep(self.pause_seconds_on_cap)
                 continue
 
+            self.log.info(
+                "published directive category=%s session_id=%s",
+                directive.target_category,
+                directive.session_id,
+            )
             await publish(directive)
 
             try:
@@ -65,6 +79,7 @@ class OrchestratorAgent:
         return await anext(stream)
 
     async def _handle_regression_flag(self, message: RegressionFlag) -> None:
+        self.log.warning("regression flag received attack_id=%s", message.attack_id)
         async with self.session_maker() as db:
             attack = await db.get(AttackRecord, UUID(str(message.attack_id)))
             if attack is None:
@@ -86,8 +101,14 @@ class OrchestratorAgent:
                 # Placeholder for alerting integration; keep state drift explicit.
                 coverage.residual_risk = "CRITICAL"
                 await db.commit()
+                self.log.warning(
+                    "residual_risk escalated to CRITICAL category=%s attack_id=%s",
+                    attack.attack_category,
+                    message.attack_id,
+                )
 
     async def _reassess_priorities_if_needed(self, force: bool) -> None:
+        self.log.debug("checking priority reassessment force=%s", force)
         now = datetime.now(timezone.utc)
         if not force and self._last_reassess_at is not None:
             delta = (now - self._last_reassess_at).total_seconds()
@@ -119,6 +140,9 @@ class OrchestratorAgent:
                     if new_risk in {"CRITICAL", "HIGH", "MEDIUM", "LOW"}:
                         row.residual_risk = new_risk
                 await db.commit()
+                self.log.info("priorities updated: %s", reassessed)
+            else:
+                self.log.debug("no priority changes from reassessment")
 
         self._last_reassess_at = now
 

@@ -19,6 +19,7 @@ from state.models.attack import AttackRecord
 from state.models.verdict import Verdict as VerdictRow
 
 from agents.judge.rubric import RUBRIC_VERSION, RUBRICS
+from agents.logger import get_logger
 
 
 class _ResponseShim:
@@ -35,6 +36,7 @@ class _ResponseShim:
 
 class JudgeAgent:
     def __init__(self) -> None:
+        self.log = get_logger("judge")
         api_key = os.environ["OPENROUTER_API_KEY"]
         base_url = "https://openrouter.ai/api/v1"
 
@@ -53,11 +55,14 @@ class JudgeAgent:
         self.known_fixed_threats = {
             t.strip() for t in os.getenv("KNOWN_FIXED_THREATS", "").split(",") if t.strip()
         }
+        self.log.info("initialized gpt_model=%s claude_model=%s", self.gpt_model, self.claude_model)
 
     async def evaluate(self, attack_record: AttackRecord) -> VerdictRow:
         category = attack_record.attack_category
+        self.log.info("evaluating attack_id=%s category=%s", attack_record.id, category)
         rubric = RUBRICS.get(category)
         if rubric is None:
+            self.log.error("unsupported attack category: %s", category)
             raise ValueError(f"Unsupported attack category: {category}")
 
         layer1 = self._layer1_rule_engine(attack_record, rubric)
@@ -65,6 +70,10 @@ class JudgeAgent:
             verdict, confidence, evidence, layer_triggered = layer1
             model_a_verdict = None
             model_b_verdict = None
+            self.log.debug(
+                "layer1 rule match attack_id=%s verdict=%s confidence=%.2f",
+                attack_record.id, verdict, confidence,
+            )
         else:
             a = await self._llm_judge(
                 self.gpt_client,
@@ -90,6 +99,10 @@ class JudgeAgent:
                 confidence = min(float(a["confidence"]), float(b["confidence"]))
                 evidence = f"Model disagreement: gpt4o={a['verdict']} claude={b['verdict']}"
             layer_triggered = "llm_consensus"
+            self.log.debug(
+                "llm consensus attack_id=%s model_a=%s model_b=%s verdict=%s confidence=%.2f",
+                attack_record.id, a["verdict"], b["verdict"], verdict, confidence,
+            )
 
         severity = self._severity_for_category(category)
         regression_flag = verdict == "SUCCESS" and self._is_known_fixed_exploit(attack_record)
@@ -113,7 +126,16 @@ class JudgeAgent:
             await session.commit()
             await session.refresh(verdict_row)
 
+        self.log.info(
+            "verdict saved attack_id=%s verdict=%s confidence=%.2f regression=%s layer=%s",
+            attack_record.id, verdict, confidence, regression_flag, layer_triggered,
+        )
+
         if verdict == "UNCERTAIN" and severity in {"HIGH", "CRITICAL"}:
+            self.log.warning(
+                "escalating UNCERTAIN verdict attack_id=%s category=%s severity=%s",
+                attack_record.id, category, severity,
+            )
             await publish(
                 Escalation(
                     source_agent="judge",
@@ -125,6 +147,10 @@ class JudgeAgent:
             )
 
         if regression_flag:
+            self.log.warning(
+                "regression flag attack_id=%s category=%s threat_id=%s",
+                attack_record.id, category, attack_record.threat_id,
+            )
             await publish(
                 RegressionFlag(
                     source_agent="judge",
@@ -154,6 +180,7 @@ class JudgeAgent:
         return verdict_row
 
     async def run_loop(self) -> None:
+        self.log.info("run loop started")
         async for _, message in consume("judge"):
             if message.message_type != "ATTACK_RESULT":
                 continue

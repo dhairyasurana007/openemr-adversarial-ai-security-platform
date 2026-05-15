@@ -28,6 +28,7 @@ from state.models.campaign import Campaign
 from state.models.event import AgentEvent
 from api.websocket import publish_session_event
 
+from agents.logger import get_logger
 from agents.red_team.mutator import Mutator
 
 MODEL_PRIMARY = "mistralai/mistral-7b-instruct"
@@ -41,6 +42,7 @@ MODEL_COST_PER_1K_TOKENS_USD = {
 
 class RedTeamAgent:
     def __init__(self) -> None:
+        self.log = get_logger("red_team")
         self.openrouter_api_key = os.environ["OPENROUTER_API_KEY"]
         self.target_endpoint = os.environ["TARGET_ENDPOINT"].rstrip("/")
         base_from_endpoint = urlsplit(self.target_endpoint)
@@ -56,6 +58,7 @@ class RedTeamAgent:
             base_url="https://openrouter.ai/api/v1",
         )
         self.mutator = Mutator()
+        self.log.info("initialized target=%s", self.target_endpoint)
 
         self.engine = create_async_engine(os.environ["DATABASE_URL"], echo=False)
         self.session_maker = async_sessionmaker(self.engine, expire_on_commit=False)
@@ -65,12 +68,20 @@ class RedTeamAgent:
         self.variant_system_prompt = (prompt_dir / "variant_system.txt").read_text(encoding="utf-8")
 
     async def run_loop(self) -> None:
+        self.log.info("run loop started")
         async for _, msg in consume("red_team"):
             if msg.message_type != "CAMPAIGN_DIRECTIVE":
                 continue
             await self.handle_directive(msg)
 
     async def handle_directive(self, directive: CampaignDirective) -> AttackRecord | None:
+        self.log.info(
+            "received directive campaign_id=%s category=%s depth=%d mode=%s",
+            directive.campaign_id,
+            directive.target_category,
+            directive.mutation_depth,
+            directive.execution_mode,
+        )
         sequence, token_cost_usd = self.generate_sequence(directive)
 
         async with self.session_maker() as session:
@@ -80,6 +91,12 @@ class RedTeamAgent:
 
             campaign.cost_so_far_usd = float(campaign.cost_so_far_usd) + token_cost_usd
             if campaign.cost_so_far_usd >= float(campaign.cost_cap_usd):
+                self.log.warning(
+                    "cost cap reached campaign_id=%s cost_usd=%.4f cap_usd=%.4f",
+                    directive.campaign_id,
+                    campaign.cost_so_far_usd,
+                    campaign.cost_cap_usd,
+                )
                 campaign.status = "failed"
                 await session.commit()
                 await publish(
@@ -134,6 +151,12 @@ class RedTeamAgent:
             await session.commit()
             await session.refresh(attack_row)
 
+        self.log.info(
+            "attack saved attack_id=%s status=%d cost_usd=%.4f",
+            attack_id,
+            status_code,
+            token_cost_usd,
+        )
         await publish(
             AttackResult(
                 source_agent="red_team",
@@ -183,6 +206,13 @@ class RedTeamAgent:
 
         total_tokens = int(getattr(completion.usage, "total_tokens", 0) or 0)
         cost = (total_tokens / 1000.0) * MODEL_COST_PER_1K_TOKENS_USD[model]
+        self.log.debug(
+            "generated sequence turns=%d tokens=%d cost_usd=%.4f model=%s",
+            len(sequence),
+            total_tokens,
+            cost,
+            model,
+        )
         return sequence, cost
 
     async def wait_for_approval(
@@ -206,12 +236,14 @@ class RedTeamAgent:
             )
         )
 
+        self.log.info("waiting for approval attack_id=%s", attack_id)
         stream = consume("red_team", block_ms=1000)
         loop = asyncio.get_event_loop()
         deadline = loop.time() + timeout_seconds
         while True:
             remaining = deadline - loop.time()
             if remaining <= 0:
+                self.log.warning("approval timeout attack_id=%s", attack_id)
                 return None
             try:
                 _, message = await asyncio.wait_for(stream.__anext__(), timeout=remaining)
@@ -221,6 +253,7 @@ class RedTeamAgent:
                 continue
             if UUID(str(message.attack_id)) != attack_id:
                 continue
+            self.log.info("approval received attack_id=%s decision=%s", attack_id, message.decision)
             return message
 
     async def execute_attack(
@@ -260,6 +293,7 @@ class RedTeamAgent:
 
         started = perf_counter()
         trace_id = str(uuid4())
+        self.log.info("POST %s path=%s", target_url, connection_path)
         if session_id is not None:
             await self._record_target_event(
                 session_id=session_id,
@@ -281,6 +315,7 @@ class RedTeamAgent:
             try:
                 response = await client.post(target_url, headers=headers, json=payload)
             except Exception as exc:
+                self.log.error("HTTP request failed url=%s error=%s", target_url, exc)
                 if session_id is not None:
                     await self._record_target_event(
                         session_id=session_id,
@@ -309,6 +344,8 @@ class RedTeamAgent:
                     "response_body": response.text[:4000],
                 },
             )
+        duration_ms = round((perf_counter() - started) * 1000, 2)
+        self.log.info("response HTTP %d duration_ms=%s", response.status_code, duration_ms)
         return int(response.status_code), response.text
 
     async def _record_target_event(self, session_id: UUID, event_type: str, payload: dict[str, Any]) -> None:

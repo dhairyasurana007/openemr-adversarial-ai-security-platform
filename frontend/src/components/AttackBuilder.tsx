@@ -21,6 +21,7 @@ export function AttackBuilder() {
   const [response, setResponse] = useState<string>("");
   const sessionId = localStorage.getItem("agentforge_session_id") ?? undefined;
   const hasBlankTurn = turns.some((turn) => turn.content.trim().length === 0);
+  const isMultiTurn = turns.length >= 2;
   const message = turns
     .map((turn) => turn.content.trim())
     .filter((line) => line.length > 0)
@@ -74,7 +75,10 @@ export function AttackBuilder() {
 
   return (
     <div className="card">
-      <div className="card-title">Attack Sequence</div>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+        <div className="card-title" style={{ marginBottom: 0 }}>Attack Sequence</div>
+        <span className="text-muted text-sm">Requires 2+ turns to fire</span>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1rem", marginTop: "0.75rem" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           {turns.map((turn, idx) => (
@@ -120,7 +124,7 @@ export function AttackBuilder() {
           + Add Turn
         </button>
         <button type="button" className="btn btn-primary btn-sm"
-          onClick={() => fireMutation.mutate()} disabled={fireMutation.isPending || hasBlankTurn}>
+          onClick={() => fireMutation.mutate()} disabled={fireMutation.isPending || hasBlankTurn || !isMultiTurn}>
           {fireMutation.isPending ? "Firing..." : "Fire"}
         </button>
         <button type="button" className="btn btn-ghost btn-sm"

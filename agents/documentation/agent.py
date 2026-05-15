@@ -14,6 +14,7 @@ from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from agents.logger import get_logger
 from orchestration.messages import AttackApprovalRequest, JudgeVerdict
 from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
@@ -36,6 +37,7 @@ CANONICAL_FIELDS = [
 
 class DocumentationAgent:
     def __init__(self) -> None:
+        self.log = get_logger("documentation")
         self.openrouter_api_key = os.environ["OPENROUTER_API_KEY"]
         self.slack_webhook_url = os.environ["SLACK_WEBHOOK_URL"]
         self.approval_channel = os.environ["APPROVAL_CHANNEL"]
@@ -56,9 +58,16 @@ class DocumentationAgent:
         self.high_below_template = (
             base_dir / "templates" / "high_and_below.txt"
         ).read_text(encoding="utf-8")
+        self.log.info("initialized model=%s", self.model)
 
     async def generate_report(self, verdict_msg: JudgeVerdict) -> VulnerabilityReport:
         attack_id = UUID(str(verdict_msg.attack_id))
+        self.log.info(
+            "generating report attack_id=%s verdict=%s confidence=%.2f",
+            attack_id,
+            verdict_msg.verdict,
+            verdict_msg.confidence,
+        )
 
         async with self.session_maker() as session:
             attack = await session.get(AttackRecord, attack_id)
@@ -121,7 +130,20 @@ class DocumentationAgent:
             await session.commit()
             await session.refresh(report)
 
+        self.log.info(
+            "report saved report_id=%s attack_id=%s severity=%s status=%s",
+            report.id,
+            attack_id,
+            severity,
+            status,
+        )
+
         if severity == "CRITICAL":
+            self.log.warning(
+                "CRITICAL report queued for approval report_id=%s category=%s",
+                report.id,
+                report.attack_category,
+            )
             await publish(
                 AttackApprovalRequest(
                     source_agent="documentation",
@@ -137,6 +159,7 @@ class DocumentationAgent:
         return report
 
     async def run_loop(self) -> None:
+        self.log.info("run loop started")
         async for _, message in consume("documentation"):
             if message.message_type != "JUDGE_VERDICT":
                 continue
@@ -188,6 +211,7 @@ class DocumentationAgent:
         out_dir = Path("vulnerability_reports")
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"{report.id}.json"
+        self.log.info("writing report file path=%s", out_path)
         out_path.write_text(
             json.dumps(
                 {
@@ -213,6 +237,7 @@ class DocumentationAgent:
         )
 
     async def _send_slack_notification(self, report: VulnerabilityReport) -> None:
+        self.log.info("sending Slack notification report_id=%s", report.id)
         body = {
             "channel": self.approval_channel,
             "text": (

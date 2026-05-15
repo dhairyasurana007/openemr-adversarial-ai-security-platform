@@ -3,11 +3,16 @@ import { useState } from "react";
 
 import { createCampaign } from "../api/service";
 
-export function CampaignConfig() {
+interface Props {
+  defaultTestingMode?: "blackbox" | "whitebox";
+  onLaunched?: () => void;
+}
+
+export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: Props = {}) {
   const defaultTargetUrl = __TARGET_ENDPOINT__ || "http://localhost";
   const [form, setForm] = useState({
     execution_mode: "auto",
-    testing_mode: "blackbox",
+    testing_mode: defaultTestingMode,
     target_category: "prompt_injection",
     target_url: localStorage.getItem("agentforge_target_url") ?? defaultTargetUrl,
     seed_case_ids: "T01-001",
@@ -28,6 +33,7 @@ export function CampaignConfig() {
       localStorage.setItem("agentforge_session_id", data.session_id);
       localStorage.setItem("agentforge_campaign_id", data.id);
       localStorage.setItem("agentforge_target_url", form.target_url);
+      onLaunched?.();
     },
   });
 
