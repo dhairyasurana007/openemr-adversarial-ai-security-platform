@@ -14,7 +14,11 @@ from orchestration.graph import AgentGraph
 
 async def main() -> None:
     graph = AgentGraph()
-    await graph.run()
+    await asyncio.gather(
+        graph.run(),
+        graph.judge.run_loop(),
+        graph.documentation.run_loop(),
+    )
 
 
 if __name__ == "__main__":
