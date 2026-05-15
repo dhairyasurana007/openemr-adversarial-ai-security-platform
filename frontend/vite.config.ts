@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      __TARGET_ENDPOINT__: JSON.stringify(env.TARGET_ENDPOINT ?? ""),
+      __TARGET_ENDPOINT__: JSON.stringify(env.TARGET_ENDPOINT ?? env.TARGET_URL ?? ""),
     },
     server: {
       proxy: {

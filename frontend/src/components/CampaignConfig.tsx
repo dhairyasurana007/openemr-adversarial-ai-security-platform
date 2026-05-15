@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: Props = {}) {
-  const defaultTargetUrl = __TARGET_ENDPOINT__ || "http://localhost";
+  const defaultTargetUrl = __TARGET_ENDPOINT__ || "";
   const [form, setForm] = useState({
     execution_mode: "auto",
     testing_mode: defaultTestingMode,
