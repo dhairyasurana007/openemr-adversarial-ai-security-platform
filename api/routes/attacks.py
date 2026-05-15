@@ -17,6 +17,7 @@ from orchestration.redis_queue import publish
 from state.db import get_db
 from state.models.attack import AttackRecord
 from state.models.campaign import Campaign
+from state.models.event import AgentEvent
 from state.models.verdict import Verdict
 
 router = APIRouter(tags=["attacks"])
