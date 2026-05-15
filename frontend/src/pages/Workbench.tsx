@@ -58,12 +58,7 @@ export default function Workbench() {
         ))}
       </div>
 
-      {activeTab === "Attack Builder" && (
-        <>
-          <AttackBuilder />
-          <TargetInteractionPanel events={log.data ?? []} targetUrl={targetUrl} />
-        </>
-      )}
+      {activeTab === "Attack Builder" && <AttackBuilder />}
       {activeTab === "Campaign Config" && <CampaignConfig />}
       {activeTab === "Seed Manager" && <SeedManager />}
       {activeTab === "Replay" && (
@@ -77,6 +72,8 @@ export default function Workbench() {
           {query && <p className="text-muted mt-1">Query: <span className="font-mono">{query}</span></p>}
         </div>
       )}
+
+      <TargetInteractionPanel events={log.data ?? []} targetUrl={targetUrl} />
 
       {pendingApprovals.length > 0 && (
         <div className="card mt-3">

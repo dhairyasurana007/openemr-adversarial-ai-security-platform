@@ -20,6 +20,7 @@ export function AttackBuilder() {
   const [turns, setTurns] = useState<Turn[]>([{ role: "user", content: "" }]);
   const [response, setResponse] = useState<string>("");
   const sessionId = localStorage.getItem("agentforge_session_id") ?? undefined;
+  const hasBlankTurn = turns.some((turn) => turn.content.trim().length === 0);
   const message = turns
     .map((turn) => turn.content.trim())
     .filter((line) => line.length > 0)
@@ -119,7 +120,7 @@ export function AttackBuilder() {
           + Add Turn
         </button>
         <button type="button" className="btn btn-primary btn-sm"
-          onClick={() => fireMutation.mutate()} disabled={fireMutation.isPending}>
+          onClick={() => fireMutation.mutate()} disabled={fireMutation.isPending || hasBlankTurn}>
           {fireMutation.isPending ? "Firing..." : "Fire"}
         </button>
         <button type="button" className="btn btn-ghost btn-sm"
