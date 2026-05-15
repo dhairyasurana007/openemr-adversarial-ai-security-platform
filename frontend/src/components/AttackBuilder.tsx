@@ -16,7 +16,12 @@ const roleColor: Record<TurnRole, string> = {
   assistant: "var(--success)",
 };
 
-export function AttackBuilder() {
+interface Props {
+  testingMode?: string;
+  onFired?: () => void;
+}
+
+export function AttackBuilder({ testingMode, onFired }: Props = {}) {
   const [turns, setTurns] = useState<Turn[]>([{ role: "user", content: "" }]);
   const [response, setResponse] = useState<string>("");
   const sessionId = localStorage.getItem("agentforge_session_id") ?? undefined;
@@ -47,12 +52,15 @@ export function AttackBuilder() {
         surface: "chat",
         use_rag: true,
         session_id: sessionId,
+        testing_mode: testingMode ?? "blackbox",
+        attack_category: "prompt_injection",
       });
     },
     onSuccess: (data) => {
       const rendered =
         typeof data.response === "string" ? data.response : JSON.stringify(data.response);
       setResponse(`HTTP ${data.status_code}: ${rendered}`);
+      onFired?.();
     },
     onError: (error) => {
       setResponse(`Request failed: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -126,10 +134,6 @@ export function AttackBuilder() {
         <button type="button" className="btn btn-primary btn-sm"
           onClick={() => fireMutation.mutate()} disabled={fireMutation.isPending || hasBlankTurn || !isMultiTurn}>
           {fireMutation.isPending ? "Firing..." : "Fire"}
-        </button>
-        <button type="button" className="btn btn-ghost btn-sm"
-          onClick={() => setResponse("Send to Judge is not wired yet.")}>
-          Send to Judge
         </button>
       </div>
 

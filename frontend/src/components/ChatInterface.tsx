@@ -34,17 +34,25 @@ function extractText(response: unknown): string {
 interface Props {
   targetUrl: string;
   sessionId?: string;
+  testingMode?: string;
   onMessageSent?: () => void;
 }
 
-export function ChatInterface({ targetUrl, sessionId, onMessageSent }: Props) {
+export function ChatInterface({ targetUrl, sessionId, testingMode, onMessageSent }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const sendMutation = useMutation({
     mutationFn: (msg: string) =>
-      fireManualAttack({ message: msg, surface: "chat", use_rag: true, session_id: sessionId }),
+      fireManualAttack({
+        message: msg,
+        surface: "chat",
+        use_rag: true,
+        session_id: sessionId,
+        testing_mode: testingMode ?? "blackbox",
+        attack_category: "prompt_injection",
+      }),
     onSuccess: (data) => {
       setMessages((prev) => [
         ...prev,

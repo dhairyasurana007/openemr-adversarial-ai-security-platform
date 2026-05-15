@@ -16,7 +16,9 @@ from evals.schemas import DetectionRule
 from orchestration.messages import Escalation, JudgeVerdict, RegressionFlag
 from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
+from state.models.event import AgentEvent
 from state.models.verdict import Verdict as VerdictRow
+from api.websocket import publish_session_event
 
 from agents.judge.rubric import RUBRIC_VERSION, RUBRICS
 from agents.logger import get_logger
@@ -57,9 +59,26 @@ class JudgeAgent:
         }
         self.log.info("initialized gpt_model=%s claude_model=%s", self.gpt_model, self.claude_model)
 
+    async def _emit_event(self, session_id: UUID, event_type: str, payload: dict[str, Any]) -> None:
+        async with self.session_maker() as session:
+            session.add(AgentEvent(
+                session_id=session_id,
+                agent="judge",
+                event_type=event_type,
+                payload=payload,
+                cost_delta_usd=0.0,
+            ))
+            await session.commit()
+        await publish_session_event(session_id, {"event_type": event_type, "payload": payload})
+
     async def evaluate(self, attack_record: AttackRecord) -> VerdictRow:
         category = attack_record.attack_category
         self.log.info("evaluating attack_id=%s category=%s", attack_record.id, category)
+        await self._emit_event(
+            attack_record.session_id,
+            "judge.evaluation_started",
+            {"attack_id": str(attack_record.id), "category": category},
+        )
         rubric = RUBRICS.get(category)
         if rubric is None:
             self.log.error("unsupported attack category: %s", category)
@@ -129,6 +148,11 @@ class JudgeAgent:
         self.log.info(
             "verdict saved attack_id=%s verdict=%s confidence=%.2f regression=%s layer=%s",
             attack_record.id, verdict, confidence, regression_flag, layer_triggered,
+        )
+        await self._emit_event(
+            attack_record.session_id,
+            "judge.verdict_saved",
+            {"attack_id": str(attack_record.id), "verdict": verdict, "confidence": confidence},
         )
 
         if verdict == "UNCERTAIN" and severity in {"HIGH", "CRITICAL"}:

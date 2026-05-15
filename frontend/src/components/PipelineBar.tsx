@@ -7,6 +7,10 @@ interface Props {
   phase: PipelinePhase;
   hasActivity: boolean;
   findingCount: number;
+  judgeStarted?: boolean;
+  judgeFinished?: boolean;
+  docsStarted?: boolean;
+  docsFinished?: boolean;
 }
 
 type StageStatus = "idle" | "active" | "complete";
@@ -117,7 +121,7 @@ function Arrow() {
   );
 }
 
-export function PipelineBar({ mode, phase, hasActivity, findingCount }: Props) {
+export function PipelineBar({ mode, phase, hasActivity, findingCount, judgeStarted, judgeFinished, docsStarted, docsFinished }: Props) {
   const isPost = phase === "post_session";
   const isActive = phase === "active";
 
@@ -129,14 +133,16 @@ export function PipelineBar({ mode, phase, hasActivity, findingCount }: Props) {
 
   const judgeStatus: StageStatus =
     !hasActivity ? "idle"
-    : findingCount > 0 ? "complete"
+    : findingCount > 0 || judgeFinished ? "complete"
+    : judgeStarted ? "active"
     : isPost ? "active"
     : "idle";
 
   const docStatus: StageStatus =
     !hasActivity ? "idle"
-    : findingCount > 0 ? "complete"
-    : judgeStatus === "active" ? "active"
+    : findingCount > 0 || docsFinished ? "complete"
+    : docsStarted ? "active"
+    : judgeStatus === "complete" ? "active"
     : "idle";
 
   return (

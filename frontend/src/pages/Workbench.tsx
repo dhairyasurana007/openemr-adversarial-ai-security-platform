@@ -67,6 +67,11 @@ export default function Workbench() {
   const requestCount = sessionEvents.filter((e) => e.event_type === "target_http.request").length;
   const hasActivity = mode === "red_team" ? requestCount > 0 : interactionCount > 0;
 
+  const judgeStarted = sessionEvents.some((e) => e.event_type === "judge.evaluation_started");
+  const judgeFinished = sessionEvents.some((e) => e.event_type === "judge.verdict_saved");
+  const docsStarted = sessionEvents.some((e) => e.event_type === "documentation.report_started");
+  const docsFinished = sessionEvents.some((e) => e.event_type === "documentation.report_saved");
+
   useEffect(() => {
     if (phase === "active" && sessionId) {
       void runTargetHealthCheck(sessionId);
@@ -104,6 +109,10 @@ export default function Workbench() {
       phase={pipelinePhase}
       hasActivity={hasActivity}
       findingCount={findingCount}
+      judgeStarted={judgeStarted}
+      judgeFinished={judgeFinished}
+      docsStarted={docsStarted}
+      docsFinished={docsFinished}
     />
   );
 
@@ -269,7 +278,7 @@ export default function Workbench() {
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         {pipeline}
         {sessionHeader}
-        <ChatInterface targetUrl={targetUrl} sessionId={sessionId} onMessageSent={() => setInteractionCount((c) => c + 1)} />
+        <ChatInterface targetUrl={targetUrl} sessionId={sessionId} testingMode={testingMode} onMessageSent={() => setInteractionCount((c) => c + 1)} />
         {approvalQueue}
       </div>
     );
@@ -348,8 +357,8 @@ export default function Workbench() {
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       {pipeline}
       {sessionHeader}
-      <AttackBuilder />
-      <ChatInterface targetUrl={targetUrl} sessionId={sessionId} onMessageSent={() => setInteractionCount((c) => c + 1)} />
+      <AttackBuilder testingMode={testingMode} onFired={() => setInteractionCount((c) => c + 1)} />
+      <ChatInterface targetUrl={targetUrl} sessionId={sessionId} testingMode={testingMode} onMessageSent={() => setInteractionCount((c) => c + 1)} />
       {approvalQueue}
     </div>
   );

@@ -76,6 +76,8 @@ export async function fireManualAttack(payload: {
   surface: "chat";
   use_rag: boolean;
   session_id?: string;
+  testing_mode?: string;
+  attack_category?: string;
 }) {
   const { data } = await api.post<{ status_code: number; response: unknown }>("/attacks/manual-fire", payload);
   return data;

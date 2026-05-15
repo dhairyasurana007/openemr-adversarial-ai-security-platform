@@ -15,9 +15,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from agents.logger import get_logger
+from api.websocket import publish_session_event
 from orchestration.messages import AttackApprovalRequest, JudgeVerdict
 from orchestration.redis_queue import consume, publish
 from state.models.attack import AttackRecord
+from state.models.event import AgentEvent
 from state.models.verdict import Verdict
 from state.models.vulnerability import VulnerabilityReport
 
@@ -60,6 +62,18 @@ class DocumentationAgent:
         ).read_text(encoding="utf-8")
         self.log.info("initialized model=%s", self.model)
 
+    async def _emit_event(self, session_id: UUID, event_type: str, payload: dict[str, Any]) -> None:
+        async with self.session_maker() as session:
+            session.add(AgentEvent(
+                session_id=session_id,
+                agent="documentation",
+                event_type=event_type,
+                payload=payload,
+                cost_delta_usd=0.0,
+            ))
+            await session.commit()
+        await publish_session_event(session_id, {"event_type": event_type, "payload": payload})
+
     async def generate_report(self, verdict_msg: JudgeVerdict) -> VulnerabilityReport:
         attack_id = UUID(str(verdict_msg.attack_id))
         self.log.info(
@@ -67,6 +81,11 @@ class DocumentationAgent:
             attack_id,
             verdict_msg.verdict,
             verdict_msg.confidence,
+        )
+        await self._emit_event(
+            verdict_msg.session_id,
+            "documentation.report_started",
+            {"attack_id": str(attack_id)},
         )
 
         async with self.session_maker() as session:
@@ -136,6 +155,11 @@ class DocumentationAgent:
             attack_id,
             severity,
             status,
+        )
+        await self._emit_event(
+            attack.session_id,
+            "documentation.report_saved",
+            {"report_id": str(report.id), "attack_id": str(attack_id), "severity": severity, "status": status},
         )
 
         if severity == "CRITICAL":
