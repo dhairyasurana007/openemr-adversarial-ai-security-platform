@@ -196,22 +196,58 @@ async def manual_fire(
         db.add(attack_record)
         await db.commit()
 
+    return {"status_code": int(response.status_code), "response": response_body}
+
+
+class FinalizeSessionRequest(BaseModel):
+    session_id: uuid.UUID
+
+
+@router.post("/finalize-session")
+async def finalize_session(
+    payload: FinalizeSessionRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Queue all un-evaluated AttackRecords for this session through the Judge."""
+    already_evaluated = select(Verdict.attack_id)
+    stmt = (
+        select(AttackRecord)
+        .where(AttackRecord.session_id == payload.session_id)
+        .where(~AttackRecord.id.in_(already_evaluated))
+    )
+    records = (await db.execute(stmt)).scalars().all()
+    total = len(records)
+
+    db.add(AgentEvent(
+        session_id=payload.session_id,
+        agent="system",
+        event_type="session.finalized",
+        payload={"total_attacks": total},
+        cost_delta_usd=0.0,
+    ))
+    await db.commit()
+    await publish_session_event(
+        payload.session_id,
+        {"event_type": "session.finalized", "payload": {"total_attacks": total}},
+    )
+
+    for record in records:
         await publish(
             AttackResult(
                 source_agent="red_team",
                 target_agent="judge",
-                session_id=payload.session_id,
-                campaign_id=campaign.id,
-                attack_id=attack_id,
-                threat_id="MANUAL-INTERACTION",
-                prompt_sequence=prompt_sequence,
-                target_response=response_text,
-                response_status_code=int(response.status_code),
-                token_cost_usd=0.0,
+                session_id=record.session_id,
+                campaign_id=record.campaign_id,
+                attack_id=record.id,
+                threat_id=record.threat_id,
+                prompt_sequence=record.prompt_sequence,
+                target_response=record.target_response,
+                response_status_code=record.response_status_code,
+                token_cost_usd=record.token_cost_usd,
             )
         )
 
-    return {"status_code": int(response.status_code), "response": response_body}
+    return {"queued": total}
 
 
 @router.get("/target-endpoint")

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { fetchAgentLog, fetchFindings, fetchTargetEndpoint, runTargetHealthCheck } from "../api/service";
+import { AgentActivityScreen } from "../components/AgentActivityScreen";
 import { AttackBuilder } from "../components/AttackBuilder";
 import { CampaignConfig } from "../components/CampaignConfig";
 import { ChatInterface } from "../components/ChatInterface";
@@ -23,7 +23,6 @@ const MODE_LABELS: Record<WorkbenchMode, string> = {
 };
 
 export default function Workbench() {
-  const navigate = useNavigate();
   const [phase, setPhase] = useState<SessionPhase>(
     () => (localStorage.getItem("agentforge_phase") as SessionPhase | null) ?? "pre_session",
   );
@@ -132,48 +131,14 @@ export default function Workbench() {
   // ── Post-session ──────────────────────────────────────────────────────────
   if (phase === "post_session") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {/* Pipeline pinned at top */}
-        {pipeline}
-
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.3rem" }}>
-              <div className="page-title">Session Ended</div>
-              <span style={{ color: "var(--success)", fontSize: 18 }}>✓</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-              <span className="font-mono" style={{ color: "var(--text-muted)" }}>{sessionId.slice(0, 8)}…</span>
-              <span className="text-muted">·</span>
-              <span className="text-muted" style={{ textTransform: "capitalize" }}>{testingMode}</span>
-              <span className="text-muted">·</span>
-              <span className="text-muted">{MODE_LABELS[mode]}</span>
-            </div>
-          </div>
-          <button type="button" className="btn btn-primary" onClick={startNewSession}>
-            Start New Session
-          </button>
-        </div>
-
-        {/* Action buttons */}
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => navigate("/findings")}
-          >
-            View Findings →
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => navigate("/approvals")}
-          >
-            View Approvals →
-          </button>
-        </div>
-      </div>
+      <AgentActivityScreen
+        sessionId={sessionId}
+        mode={mode}
+        testingMode={testingMode}
+        sessionEvents={sessionEvents}
+        findingCount={findingCount}
+        onNewSession={startNewSession}
+      />
     );
   }
 

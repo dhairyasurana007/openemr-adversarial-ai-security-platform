@@ -83,6 +83,11 @@ export async function fireManualAttack(payload: {
   return data;
 }
 
+export async function finalizeSession(sessionId: string) {
+  const { data } = await api.post<{ queued: number }>("/attacks/finalize-session", { session_id: sessionId });
+  return data;
+}
+
 export async function runTargetHealthCheck(sessionId?: string) {
   return fireManualAttack({
     message: "health_check",
