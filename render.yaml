@@ -12,8 +12,8 @@ envVarGroups:
 
 services:
   - type: web
-    name: agentforge-adversarial-ai-security-platform-api
-    runtime: python
+    name: agentforge-adversarial-ai-security-platform
+    runtime: docker
     plan: standard
     envVars:
       - fromGroup: agentforge-secrets
@@ -26,29 +26,14 @@ services:
           type: keyvalue
           name: agentforge-adversarial-ai-security-platform-redis
           property: connectionString
-    buildCommand: pip install -r requirements.txt
-    startCommand: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
-    port: 8000
+      - key: TARGET_ENDPOINT
+        sync: false
+    dockerCommand: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 10000"
 
   - type: keyvalue
     name: agentforge-adversarial-ai-security-platform-redis
     plan: starter
     ipAllowList: []
-
-  - type: web
-    name: agentforge-adversarial-ai-security-platform-frontend
-    runtime: static
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://agentforge-adversarial-ai-security-platform-api.onrender.com/api
-      - key: TARGET_ENDPOINT
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
 
 databases:
   - name: agentforge-adversarial-ai-security-platform-postgres
