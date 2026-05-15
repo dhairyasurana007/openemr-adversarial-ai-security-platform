@@ -70,12 +70,13 @@ export default function Workbench() {
   const allEvents = log.data ?? [];
   const sessionEvents = allEvents.filter((e) => e.session_id === sessionId);
   const requestCount = sessionEvents.filter((e) => e.event_type === "target_http.request").length;
-  const hasActivity = mode === "red_team" ? requestCount > 0 : interactionCount > 0 || judgeStarted;
 
   const judgeStarted = sessionEvents.some((e) => e.event_type === "judge.evaluation_started");
   const judgeFinished = sessionEvents.some((e) => e.event_type === "judge.verdict_saved");
   const docsStarted = sessionEvents.some((e) => e.event_type === "documentation.report_started");
   const docsFinished = sessionEvents.some((e) => e.event_type === "documentation.report_saved");
+
+  const hasActivity = mode === "red_team" ? requestCount > 0 : interactionCount > 0 || judgeStarted;
 
   useEffect(() => {
     if (phase === "active" && sessionId) {
