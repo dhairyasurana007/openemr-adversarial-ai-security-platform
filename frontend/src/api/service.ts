@@ -80,3 +80,12 @@ export async function fireManualAttack(payload: {
   const { data } = await api.post<{ status_code: number; response: unknown }>("/attacks/manual-fire", payload);
   return data;
 }
+
+export async function runTargetHealthCheck(sessionId?: string) {
+  return fireManualAttack({
+    message: "health_check",
+    surface: "chat",
+    use_rag: true,
+    session_id: sessionId,
+  });
+}

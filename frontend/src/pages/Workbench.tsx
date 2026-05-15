@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { fetchAgentLog } from "../api/service";
+import { fetchAgentLog, runTargetHealthCheck } from "../api/service";
 import { AttackBuilder } from "../components/AttackBuilder";
 import { CampaignConfig } from "../components/CampaignConfig";
 import { SeedManager } from "../components/SeedManager";
@@ -33,6 +33,10 @@ export default function Workbench() {
   });
 
   const pendingApprovals = approvals.queue.data ?? [];
+
+  useEffect(() => {
+    void runTargetHealthCheck(sessionId);
+  }, [sessionId]);
 
   return (
     <>
