@@ -20,4 +20,4 @@ RUN chown -R agentforge:agentforge /app
 
 USER agentforge
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}"]
+CMD ["python", "start_server.py"]
