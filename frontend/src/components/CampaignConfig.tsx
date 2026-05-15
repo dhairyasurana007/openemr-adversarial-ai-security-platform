@@ -14,7 +14,7 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
     execution_mode: "auto",
     testing_mode: defaultTestingMode,
     target_category: "prompt_injection",
-    target_url: localStorage.getItem("agentforge_target_url") ?? defaultTargetUrl,
+    target_url: defaultTargetUrl,
     seed_case_ids: "T01-001",
     mutation_depth: 2,
     cost_cap_usd: 5,
