@@ -28,7 +28,7 @@ services:
           property: connectionString
       - key: TARGET_ENDPOINT
         sync: false
-    dockerCommand: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 10000"
+    dockerCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 10000
 
   - type: keyvalue
     name: agentforge-adversarial-ai-security-platform-redis
