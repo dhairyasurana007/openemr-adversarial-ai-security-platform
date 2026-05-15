@@ -24,9 +24,15 @@ const MODE_LABELS: Record<WorkbenchMode, string> = {
 
 export default function Workbench() {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<SessionPhase>("pre_session");
-  const [mode, setMode] = useState<WorkbenchMode>("manual");
-  const [testingMode, setTestingMode] = useState<TestingMode>("blackbox");
+  const [phase, setPhase] = useState<SessionPhase>(
+    () => (localStorage.getItem("agentforge_phase") as SessionPhase | null) ?? "pre_session",
+  );
+  const [mode, setMode] = useState<WorkbenchMode>(
+    () => (localStorage.getItem("agentforge_mode") as WorkbenchMode | null) ?? "manual",
+  );
+  const [testingMode, setTestingMode] = useState<TestingMode>(
+    () => (localStorage.getItem("agentforge_testing_mode") as TestingMode | null) ?? "blackbox",
+  );
   const [sessionId, setSessionId] = useState<string>(
     () => localStorage.getItem("agentforge_session_id") ?? "",
   );
@@ -65,7 +71,7 @@ export default function Workbench() {
   const allEvents = log.data ?? [];
   const sessionEvents = allEvents.filter((e) => e.session_id === sessionId);
   const requestCount = sessionEvents.filter((e) => e.event_type === "target_http.request").length;
-  const hasActivity = mode === "red_team" ? requestCount > 0 : interactionCount > 0;
+  const hasActivity = mode === "red_team" ? requestCount > 0 : interactionCount > 0 || judgeStarted;
 
   const judgeStarted = sessionEvents.some((e) => e.event_type === "judge.evaluation_started");
   const judgeFinished = sessionEvents.some((e) => e.event_type === "judge.verdict_saved");
@@ -81,6 +87,9 @@ export default function Workbench() {
   function startSession(selectedMode: WorkbenchMode, selectedTestingMode: TestingMode) {
     const newId = crypto.randomUUID();
     localStorage.setItem("agentforge_session_id", newId);
+    localStorage.setItem("agentforge_phase", "active");
+    localStorage.setItem("agentforge_mode", selectedMode);
+    localStorage.setItem("agentforge_testing_mode", selectedTestingMode);
     setSessionId(newId);
     setMode(selectedMode);
     setTestingMode(selectedTestingMode);
@@ -89,11 +98,15 @@ export default function Workbench() {
   }
 
   function endSession() {
+    localStorage.setItem("agentforge_phase", "post_session");
     setPhase("post_session");
     setCampaignModalOpen(false);
   }
 
   function startNewSession() {
+    localStorage.setItem("agentforge_phase", "pre_session");
+    localStorage.removeItem("agentforge_mode");
+    localStorage.removeItem("agentforge_testing_mode");
     setPhase("pre_session");
   }
 
