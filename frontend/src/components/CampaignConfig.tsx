@@ -10,6 +10,8 @@ interface Props {
 
 export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: Props = {}) {
   const defaultTargetUrl = __TARGET_ENDPOINT__ || "";
+  const token = localStorage.getItem("agentforge_token");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [form, setForm] = useState({
     execution_mode: "auto",
     testing_mode: defaultTestingMode,
@@ -29,11 +31,26 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
         technique_ids: [],
         connection_path: "copilot_endpoint",
       }),
+    onMutate: () => {
+      setErrorMessage(null);
+    },
     onSuccess: (data) => {
       localStorage.setItem("agentforge_session_id", data.session_id);
       localStorage.setItem("agentforge_campaign_id", data.id);
       localStorage.setItem("agentforge_target_url", form.target_url);
       onLaunched?.();
+    },
+    onError: (error: unknown) => {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        setErrorMessage("Authentication required: missing or invalid agent token.");
+        return;
+      }
+      if (status === 403) {
+        setErrorMessage("Permission denied: operator or ciso role is required.");
+        return;
+      }
+      setErrorMessage("Failed to dispatch campaign.");
     },
   });
 
@@ -44,8 +61,11 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">Execution Mode</label>
-            <select className="form-select" value={form.execution_mode}
-              onChange={(e) => setForm((s) => ({ ...s, execution_mode: e.target.value }))}>
+            <select
+              className="form-select"
+              value={form.execution_mode}
+              onChange={(e) => setForm((s) => ({ ...s, execution_mode: e.target.value }))}
+            >
               <option value="auto">Auto</option>
               <option value="permissions">Permissions</option>
             </select>
@@ -59,7 +79,7 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
                 onClick={() => setForm((s) => ({ ...s, testing_mode: "blackbox" }))}
                 aria-pressed={form.testing_mode === "blackbox"}
               >
-                {form.testing_mode === "blackbox" ? "✓ " : ""}Blackbox
+                {form.testing_mode === "blackbox" ? "? " : ""}Blackbox
               </button>
               <button
                 type="button"
@@ -67,7 +87,7 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
                 onClick={() => setForm((s) => ({ ...s, testing_mode: "whitebox" }))}
                 aria-pressed={form.testing_mode === "whitebox"}
               >
-                {form.testing_mode === "whitebox" ? "✓ " : ""}Whitebox
+                {form.testing_mode === "whitebox" ? "? " : ""}Whitebox
               </button>
             </div>
           </div>
@@ -75,53 +95,85 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
 
         <div className="form-group">
           <label className="form-label">Target Category</label>
-          <input className="form-input" value={form.target_category}
-            onChange={(e) => setForm((s) => ({ ...s, target_category: e.target.value }))} />
+          <input
+            className="form-input"
+            value={form.target_category}
+            onChange={(e) => setForm((s) => ({ ...s, target_category: e.target.value }))}
+          />
         </div>
 
         <div className="form-group">
           <label className="form-label">Target Endpoint URL</label>
-          <input className="form-input" value={form.target_url}
+          <input
+            className="form-input"
+            value={form.target_url}
             placeholder="https://target.example/api"
-            onChange={(e) => setForm((s) => ({ ...s, target_url: e.target.value }))} />
+            onChange={(e) => setForm((s) => ({ ...s, target_url: e.target.value }))}
+          />
         </div>
 
         <div className="form-group">
           <label className="form-label">Seed Case IDs (comma-separated)</label>
-          <input className="form-input" value={form.seed_case_ids}
-            placeholder="T01-001, T02-003, …"
-            onChange={(e) => setForm((s) => ({ ...s, seed_case_ids: e.target.value }))} />
+          <input
+            className="form-input"
+            value={form.seed_case_ids}
+            placeholder="T01-001, T02-003, ..."
+            onChange={(e) => setForm((s) => ({ ...s, seed_case_ids: e.target.value }))}
+          />
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Mutation Depth — {form.mutation_depth}</label>
-            <input type="range" min={1} max={5} value={form.mutation_depth}
+            <label className="form-label">Mutation Depth - {form.mutation_depth}</label>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={form.mutation_depth}
               style={{ width: "100%", accentColor: "var(--primary)" }}
-              onChange={(e) => setForm((s) => ({ ...s, mutation_depth: Number(e.target.value) }))} />
+              onChange={(e) => setForm((s) => ({ ...s, mutation_depth: Number(e.target.value) }))}
+            />
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              {[1,2,3,4,5].map((n) => <span key={n} className="text-muted text-sm">{n}</span>)}
+              {[1, 2, 3, 4, 5].map((n) => (
+                <span key={n} className="text-muted text-sm">{n}</span>
+              ))}
             </div>
           </div>
           <div className="form-group">
             <label className="form-label">Cost Cap (USD)</label>
-            <input type="number" className="form-input" min={0.5} max={100} step={0.5} value={form.cost_cap_usd}
-              onChange={(e) => setForm((s) => ({ ...s, cost_cap_usd: Number(e.target.value) }))} />
+            <input
+              type="number"
+              className="form-input"
+              min={0.5}
+              max={100}
+              step={0.5}
+              value={form.cost_cap_usd}
+              onChange={(e) => setForm((s) => ({ ...s, cost_cap_usd: Number(e.target.value) }))}
+            />
           </div>
         </div>
 
         <div>
-          <button type="button" className="btn btn-primary" onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}>
-            {mutation.isPending ? "Dispatching…" : "⚡ Dispatch Campaign"}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !token}
+          >
+            {mutation.isPending ? "Dispatching..." : "? Dispatch Campaign"}
           </button>
+          {!token && (
+            <div className="text-sm" style={{ color: "var(--warning)", marginTop: "0.5rem" }}>
+              Set <span className="font-mono">localStorage.agentforge_token</span> before dispatching campaigns.
+            </div>
+          )}
         </div>
 
         {mutation.isSuccess && (
-          <div className="alert alert-success">✓ Campaign dispatched successfully</div>
+          <div className="alert alert-success">? Campaign dispatched successfully</div>
         )}
         {mutation.isError && (
-          <div className="alert alert-danger">✕ Failed to dispatch campaign</div>
+          <div className="alert alert-danger">? {errorMessage ?? "Failed to dispatch campaign"}</div>
         )}
       </div>
     </div>
