@@ -165,7 +165,7 @@ export function SessionGate({ onStart }: Props) {
             style={{ alignSelf: "center", minWidth: 160 }}
             onClick={() => setStep(2)}
           >
-            Acknowledge
+            I acknowledge
           </button>
         </div>
       )}
@@ -194,9 +194,7 @@ export function SessionGate({ onStart }: Props) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", width: "100%" }}>
             <SelectionCard isSelected={testingMode === "blackbox"} onClick={() => setTestingMode("blackbox")}>
               <div style={{ fontSize: 22 }}>🔲</div>
-              <div style={{ fontWeight: 600, color: testingMode === "blackbox" ? "var(--primary)" : "var(--text)", fontSize: 14 }}>
-                Blackbox
-              </div>
+              <div style={{ fontWeight: 600, color: testingMode === "blackbox" ? "var(--primary)" : "var(--text)", fontSize: 14 }}>{testingMode === "blackbox" ? "\u2713 " : ""}Blackbox</div>
               <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}>
                 No internal knowledge. Test the target as an external attacker would — external API only.
               </div>
@@ -204,9 +202,7 @@ export function SessionGate({ onStart }: Props) {
 
             <SelectionCard isSelected={testingMode === "whitebox"} onClick={() => setTestingMode("whitebox")}>
               <div style={{ fontSize: 22 }}>🔳</div>
-              <div style={{ fontWeight: 600, color: testingMode === "whitebox" ? "var(--primary)" : "var(--text)", fontSize: 14 }}>
-                Whitebox
-              </div>
+              <div style={{ fontWeight: 600, color: testingMode === "whitebox" ? "var(--primary)" : "var(--text)", fontSize: 14 }}>{testingMode === "whitebox" ? "\u2713 " : ""}Whitebox</div>
               <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}>
                 Full access to internals. Test with knowledge of system prompts, source code, and architecture.
               </div>
@@ -301,3 +297,4 @@ export function SessionGate({ onStart }: Props) {
     </div>
   );
 }
+

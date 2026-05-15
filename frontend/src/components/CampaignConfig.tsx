@@ -52,11 +52,24 @@ export function CampaignConfig({ defaultTestingMode = "blackbox", onLaunched }: 
           </div>
           <div className="form-group">
             <label className="form-label">Testing Mode</label>
-            <select className="form-select" value={form.testing_mode}
-              onChange={(e) => setForm((s) => ({ ...s, testing_mode: e.target.value as "whitebox" | "blackbox" }))}>
-              <option value="blackbox">Blackbox</option>
-              <option value="whitebox">Whitebox</option>
-            </select>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${form.testing_mode === "blackbox" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setForm((s) => ({ ...s, testing_mode: "blackbox" }))}
+                aria-pressed={form.testing_mode === "blackbox"}
+              >
+                {form.testing_mode === "blackbox" ? "✓ " : ""}Blackbox
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${form.testing_mode === "whitebox" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setForm((s) => ({ ...s, testing_mode: "whitebox" }))}
+                aria-pressed={form.testing_mode === "whitebox"}
+              >
+                {form.testing_mode === "whitebox" ? "✓ " : ""}Whitebox
+              </button>
+            </div>
           </div>
         </div>
 
