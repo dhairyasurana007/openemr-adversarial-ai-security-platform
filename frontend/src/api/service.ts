@@ -89,3 +89,8 @@ export async function runTargetHealthCheck(sessionId?: string) {
     session_id: sessionId,
   });
 }
+
+export async function fetchTargetEndpoint() {
+  const { data } = await api.get<{ target_endpoint: string }>("/attacks/target-endpoint");
+  return data;
+}

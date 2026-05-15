@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { fetchAgentLog, runTargetHealthCheck } from "../api/service";
+import { fetchAgentLog, fetchTargetEndpoint, runTargetHealthCheck } from "../api/service";
 import { AttackBuilder } from "../components/AttackBuilder";
 import { CampaignConfig } from "../components/CampaignConfig";
 import { SeedManager } from "../components/SeedManager";
@@ -17,10 +17,14 @@ export default function Workbench() {
   const [query, setQuery] = useState("");
   const approvals = useApprovals();
   const log = useQuery({ queryKey: ["agent-log"], queryFn: fetchAgentLog });
+  const endpoint = useQuery({ queryKey: ["target-endpoint"], queryFn: fetchTargetEndpoint });
 
   const token = localStorage.getItem("agentforge_token") ?? "";
   const sessionId = localStorage.getItem("agentforge_session_id") ?? "";
-  const targetUrl = localStorage.getItem("agentforge_target_url") ?? (__TARGET_ENDPOINT__ || "Not configured");
+  const targetUrl =
+    endpoint.data?.target_endpoint
+    || localStorage.getItem("agentforge_target_url")
+    || (__TARGET_ENDPOINT__ || "Not configured");
 
   useWebSocket({
     sessionId,

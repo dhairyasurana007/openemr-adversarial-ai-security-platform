@@ -124,3 +124,8 @@ async def manual_fire(payload: ManualFireRequest) -> dict:
         )
 
     return {"status_code": int(response.status_code), "response": response_body}
+
+
+@router.get("/target-endpoint")
+async def get_target_endpoint() -> dict:
+    return {"target_endpoint": os.getenv("TARGET_ENDPOINT", "")}
