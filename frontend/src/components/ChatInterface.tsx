@@ -34,9 +34,10 @@ function extractText(response: unknown): string {
 interface Props {
   targetUrl: string;
   sessionId?: string;
+  onMessageSent?: () => void;
 }
 
-export function ChatInterface({ targetUrl, sessionId }: Props) {
+export function ChatInterface({ targetUrl, sessionId, onMessageSent }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -77,6 +78,7 @@ export function ChatInterface({ targetUrl, sessionId }: Props) {
       { id: `${Date.now()}-user`, role: "user", content: msg, timestamp: new Date() },
     ]);
     setInput("");
+    onMessageSent?.();
     sendMutation.mutate(msg);
   };
 

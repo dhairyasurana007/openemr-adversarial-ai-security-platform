@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { fetchAgentLog, fetchTargetEndpoint, runTargetHealthCheck } from "../api/service";
+import { fetchAgentLog, fetchFindings, fetchTargetEndpoint, runTargetHealthCheck } from "../api/service";
 import { AttackBuilder } from "../components/AttackBuilder";
 import { CampaignConfig } from "../components/CampaignConfig";
 import { ChatInterface } from "../components/ChatInterface";
-import { PostSession } from "../components/PostSession";
+import { PipelineBar } from "../components/PipelineBar";
+import type { PipelinePhase } from "../components/PipelineBar";
 import { SessionGate } from "../components/SessionGate";
 import type { TestingMode, WorkbenchMode } from "../components/SessionGate";
 import { TargetInteractionPanel } from "../components/TargetInteractionPanel";
@@ -21,6 +23,7 @@ const MODE_LABELS: Record<WorkbenchMode, string> = {
 };
 
 export default function Workbench() {
+  const navigate = useNavigate();
   const [phase, setPhase] = useState<SessionPhase>("pre_session");
   const [mode, setMode] = useState<WorkbenchMode>("manual");
   const [testingMode, setTestingMode] = useState<TestingMode>("blackbox");
@@ -28,11 +31,16 @@ export default function Workbench() {
     () => localStorage.getItem("agentforge_session_id") ?? "",
   );
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
-  const [wsEventCount, setWsEventCount] = useState(0);
+  const [interactionCount, setInteractionCount] = useState(0);
 
   const approvals = useApprovals();
   const log = useQuery({ queryKey: ["agent-log"], queryFn: fetchAgentLog });
   const endpoint = useQuery({ queryKey: ["target-endpoint"], queryFn: fetchTargetEndpoint });
+  const findings = useQuery({
+    queryKey: ["findings"],
+    queryFn: () => fetchFindings({}),
+    refetchInterval: phase !== "pre_session" ? 5000 : false,
+  });
 
   const token = localStorage.getItem("agentforge_token") ?? "";
   const targetUrl =
@@ -47,11 +55,17 @@ export default function Workbench() {
     onEvent: () => {
       void approvals.queue.refetch();
       void log.refetch();
-      setWsEventCount((n) => n + 1);
+      void findings.refetch();
     },
   });
 
   const pendingApprovals = approvals.queue.data ?? [];
+  const findingCount = findings.data?.length ?? 0;
+
+  const allEvents = log.data ?? [];
+  const sessionEvents = allEvents.filter((e) => e.session_id === sessionId);
+  const requestCount = sessionEvents.filter((e) => e.event_type === "target_http.request").length;
+  const hasActivity = mode === "red_team" ? requestCount > 0 : interactionCount > 0;
 
   useEffect(() => {
     if (phase === "active" && sessionId) {
@@ -65,6 +79,7 @@ export default function Workbench() {
     setSessionId(newId);
     setMode(selectedMode);
     setTestingMode(selectedTestingMode);
+    setInteractionCount(0);
     setPhase("active");
   }
 
@@ -81,18 +96,66 @@ export default function Workbench() {
     return <SessionGate onStart={startSession} />;
   }
 
+  const pipelinePhase: PipelinePhase = phase === "active" ? "active" : "post_session";
+
+  const pipeline = (
+    <PipelineBar
+      mode={mode}
+      phase={pipelinePhase}
+      hasActivity={hasActivity}
+      findingCount={findingCount}
+    />
+  );
+
+  // ── Post-session ──────────────────────────────────────────────────────────
   if (phase === "post_session") {
     return (
-      <PostSession
-        sessionId={sessionId}
-        mode={mode}
-        testingMode={testingMode}
-        onNewSession={startNewSession}
-        onRefetchSignal={wsEventCount}
-      />
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        {/* Pipeline pinned at top */}
+        {pipeline}
+
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.3rem" }}>
+              <div className="page-title">Session Ended</div>
+              <span style={{ color: "var(--success)", fontSize: 18 }}>✓</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+              <span className="font-mono" style={{ color: "var(--text-muted)" }}>{sessionId.slice(0, 8)}…</span>
+              <span className="text-muted">·</span>
+              <span className="text-muted" style={{ textTransform: "capitalize" }}>{testingMode}</span>
+              <span className="text-muted">·</span>
+              <span className="text-muted">{MODE_LABELS[mode]}</span>
+            </div>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={startNewSession}>
+            Start New Session
+          </button>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => navigate("/findings")}
+          >
+            View Findings →
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => navigate("/approvals")}
+          >
+            View Approvals →
+          </button>
+        </div>
+      </div>
     );
   }
 
+  // ── Active session shared pieces ─────────────────────────────────────────
   const modeBadgeColor: Record<WorkbenchMode, string> = {
     manual: "var(--primary)",
     red_team: "var(--danger)",
@@ -204,8 +267,9 @@ export default function Workbench() {
   if (mode === "manual") {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {pipeline}
         {sessionHeader}
-        <ChatInterface targetUrl={targetUrl} sessionId={sessionId} />
+        <ChatInterface targetUrl={targetUrl} sessionId={sessionId} onMessageSent={() => setInteractionCount((c) => c + 1)} />
         {approvalQueue}
       </div>
     );
@@ -216,6 +280,7 @@ export default function Workbench() {
     return (
       <>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {pipeline}
           {sessionHeader}
 
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
@@ -233,7 +298,6 @@ export default function Workbench() {
           {approvalQueue}
         </div>
 
-        {/* Campaign config modal */}
         {campaignModalOpen && (
           <div
             style={{
@@ -282,9 +346,10 @@ export default function Workbench() {
   // ── Multi-Sequence mode ──────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      {pipeline}
       {sessionHeader}
       <AttackBuilder />
-      <ChatInterface targetUrl={targetUrl} sessionId={sessionId} />
+      <ChatInterface targetUrl={targetUrl} sessionId={sessionId} onMessageSent={() => setInteractionCount((c) => c + 1)} />
       {approvalQueue}
     </div>
   );

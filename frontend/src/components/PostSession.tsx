@@ -11,6 +11,7 @@ interface Props {
   testingMode: TestingMode;
   onNewSession: () => void;
   onRefetchSignal: number;
+  interactionCount: number;
 }
 
 type StageStatus = "idle" | "running" | "complete" | "error";
@@ -126,7 +127,7 @@ const MODE_LABELS: Record<WorkbenchMode, string> = {
   multi_sequence: "Multi-Sequence",
 };
 
-export function PostSession({ sessionId, mode, testingMode, onNewSession, onRefetchSignal }: Props) {
+export function PostSession({ sessionId, mode, testingMode, onNewSession, onRefetchSignal, interactionCount }: Props) {
   const navigate = useNavigate();
 
   const log = useQuery({
@@ -157,19 +158,28 @@ export function PostSession({ sessionId, mode, testingMode, onNewSession, onRefe
     ? new Date(sessionEvents[0].created_at).getTime()
     : null;
   const msSinceLastEvent = lastEventTime ? Date.now() - lastEventTime : Infinity;
-  const pipelineRecent = msSinceLastEvent < 5 * 60 * 1000; // within 5 min
+  const pipelineRecent = msSinceLastEvent < 5 * 60 * 1000;
 
+  // Red Team mode: status derived from DB AgentEvent records (real data)
   const redTeamStatus: StageStatus = requestCount > 0 ? "complete" : "idle";
+
+  // Manual / multi-sequence: manual-fire writes no DB records, so use client-side
+  // interaction count as the activity signal instead
+  const hasActivity = mode === "red_team" ? requestCount > 0 : interactionCount > 0;
+
   const judgeStatus: StageStatus =
-    requestCount === 0 ? "idle"
+    !hasActivity ? "idle"
     : findingCount > 0 ? "complete"
-    : pipelineRecent ? "running"
+    : pipelineRecent || mode !== "red_team" ? "running"
     : "complete";
+
   const docStatus: StageStatus =
-    requestCount === 0 ? "idle"
+    !hasActivity ? "idle"
     : findingCount > 0 ? "complete"
     : judgeStatus === "running" ? "running"
     : "complete";
+
+  const showRedTeam = mode === "red_team";
 
   const recentEvents = [...sessionEvents].slice(0, 20);
 
@@ -199,26 +209,29 @@ export function PostSession({ sessionId, mode, testingMode, onNewSession, onRefe
       <div>
         <div className="card-title" style={{ marginBottom: "0.75rem" }}>Pipeline Status</div>
         <div style={{ display: "flex", alignItems: "stretch" }}>
-          <StageCard
-            icon="⚔"
-            title="Red Team Agent"
-            status={redTeamStatus}
-            metric={requestCount > 0 ? `${requestCount} attack${requestCount !== 1 ? "s" : ""}` : undefined}
-            description={
-              requestCount > 0
-                ? `${responseCount} response${responseCount !== 1 ? "s" : ""}${errorCount > 0 ? ` · ${errorCount} error${errorCount !== 1 ? "s" : ""}` : ""}`
-                : "No attacks fired this session."
-            }
-          />
+          {showRedTeam && (
+            <StageCard
+              icon="⚔"
+              title="Red Team Agent"
+              status={redTeamStatus}
+              metric={requestCount > 0 ? `${requestCount} attack${requestCount !== 1 ? "s" : ""}` : undefined}
+              description={
+                requestCount > 0
+                  ? `${responseCount} response${responseCount !== 1 ? "s" : ""}${errorCount > 0 ? ` · ${errorCount} error${errorCount !== 1 ? "s" : ""}` : ""}`
+                  : "No attacks fired this session."
+              }
+            />
+          )}
           <StageCard
             icon="⚖"
             title="Judge Agent"
             status={judgeStatus}
             description={
               judgeStatus === "idle" ? "Nothing to evaluate."
-              : judgeStatus === "running" ? "Evaluating attack results against rubrics."
+              : judgeStatus === "running" ? "Evaluating session interactions against rubrics."
               : "Evaluation complete. Verdicts written."
             }
+            isLast={!showRedTeam && findingCount === 0}
           />
           <StageCard
             icon="📄"

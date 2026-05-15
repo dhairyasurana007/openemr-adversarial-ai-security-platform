@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { PipelineBar } from "./PipelineBar";
+
 export type WorkbenchMode = "manual" | "red_team" | "multi_sequence";
 export type TestingMode = "blackbox" | "whitebox";
 
@@ -193,7 +195,6 @@ export function SessionGate({ onStart }: Props) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", width: "100%" }}>
             <SelectionCard isSelected={testingMode === "blackbox"} onClick={() => setTestingMode("blackbox")}>
-              <div style={{ fontSize: 22 }}>🔲</div>
               <div style={{ fontWeight: 600, color: testingMode === "blackbox" ? "var(--primary)" : "var(--text)", fontSize: 14 }}>{testingMode === "blackbox" ? "\u2713 " : ""}Blackbox</div>
               <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}>
                 No internal knowledge. Test the target as an external attacker would — external API only.
@@ -201,7 +202,6 @@ export function SessionGate({ onStart }: Props) {
             </SelectionCard>
 
             <SelectionCard isSelected={testingMode === "whitebox"} onClick={() => setTestingMode("whitebox")}>
-              <div style={{ fontSize: 22 }}>🔳</div>
               <div style={{ fontWeight: 600, color: testingMode === "whitebox" ? "var(--primary)" : "var(--text)", fontSize: 14 }}>{testingMode === "whitebox" ? "\u2713 " : ""}Whitebox</div>
               <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}>
                 Full access to internals. Test with knowledge of system prompts, source code, and architecture.
@@ -237,6 +237,9 @@ export function SessionGate({ onStart }: Props) {
             maxWidth: 720,
           }}
         >
+          <div style={{ width: "100%" }}>
+            <PipelineBar mode={workbenchMode} phase="gate" hasActivity={false} findingCount={0} />
+          </div>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)", marginBottom: "0.25rem" }}>
               Select Workbench Mode
