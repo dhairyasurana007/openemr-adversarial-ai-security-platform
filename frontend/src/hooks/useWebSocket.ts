@@ -16,6 +16,8 @@ export function useWebSocket({
   enabled = true,
 }: UseWebSocketOptions) {
   const retries = useRef(0);
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   useEffect(() => {
     if (!enabled || !sessionId || !token) {
@@ -34,9 +36,9 @@ export function useWebSocket({
 
       socket.onmessage = (message) => {
         try {
-          onEvent(JSON.parse(message.data));
+          onEventRef.current(JSON.parse(message.data));
         } catch {
-          onEvent(message.data);
+          onEventRef.current(message.data);
         }
       };
 
@@ -63,5 +65,5 @@ export function useWebSocket({
       }
       socket?.close();
     };
-  }, [enabled, onEvent, sessionId, token]);
+  }, [enabled, sessionId, token]);
 }
