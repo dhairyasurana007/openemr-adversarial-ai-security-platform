@@ -159,8 +159,14 @@ export function AgentActivityScreen({ sessionId, mode, testingMode, sessionEvent
       return;
     }
     finalizedRef.current = true;
-    localStorage.setItem(key, sessionId);
-    void finalizeSession(sessionId).catch(() => { /* swallow — events will still arrive from red-team mode */ });
+    void finalizeSession(sessionId)
+      .then(() => {
+        localStorage.setItem(key, sessionId);
+      })
+      .catch((err) => {
+        console.error("[AgentActivityScreen] finalize-session failed:", err);
+        finalizedRef.current = false; // allow retry on next render
+      });
   }, [sessionId]);
 
   const finalizedEvent = sessionEvents.find((e) => e.event_type === "session.finalized");

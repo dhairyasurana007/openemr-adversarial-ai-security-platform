@@ -60,6 +60,11 @@ async def list_attacks(
     ]
 
 
+@router.get("/target-endpoint")
+async def get_target_endpoint() -> dict:
+    return {"target_endpoint": os.getenv("TARGET_ENDPOINT", "")}
+
+
 @router.get("/{attack_id}")
 async def get_attack(attack_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]) -> dict:
     row = await db.get(AttackRecord, attack_id)
@@ -249,8 +254,3 @@ async def finalize_session(
         )
 
     return {"queued": total}
-
-
-@router.get("/target-endpoint")
-async def get_target_endpoint() -> dict:
-    return {"target_endpoint": os.getenv("TARGET_ENDPOINT", "")}

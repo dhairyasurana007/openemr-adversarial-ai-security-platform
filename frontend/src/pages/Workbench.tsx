@@ -39,7 +39,11 @@ export default function Workbench() {
   const [interactionCount, setInteractionCount] = useState(0);
 
   const approvals = useApprovals();
-  const log = useQuery({ queryKey: ["agent-log"], queryFn: fetchAgentLog });
+  const log = useQuery({
+    queryKey: ["agent-log"],
+    queryFn: fetchAgentLog,
+    refetchInterval: phase === "post_session" ? 3000 : false,
+  });
   const endpoint = useQuery({ queryKey: ["target-endpoint"], queryFn: fetchTargetEndpoint });
   const findings = useQuery({
     queryKey: ["findings"],
